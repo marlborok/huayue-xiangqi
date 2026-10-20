@@ -217,7 +217,12 @@
     addMarker(ringGeo, selMat, f, r, 0.02);
     legalNow.forEach(([x, y]) => { if (board[y][x]) addMarker(ringGeo, capMat, x, y, 0.1); else addMarker(dotGeo, dotMat, x, y, 0.02); });
     let say = HINT[p.t];
-    if (p.t === 'P' && XQRules.crossed(p, r)) say = '我已經過河了，現在可以往前或往左右走一格！';
+    if (p.t === 'P' && XQRules.crossed(p, r)) {
+      const atEnd = p.side === 'r' ? r === 9 : r === 0;
+      say = atEnd
+        ? '我已經走到最底了！小兵不能後退，現在只能往左或往右走一格。'
+        : '我已經過河了，現在可以往前或往左右走一格！記得我不能後退喔。';
+    }
     if (!legalNow.length) {
       /* tell a pinned piece apart from a blocked one: it has moves on paper, but every one would expose its own king */
       const pinned = XQRules.pseudo(board, f, r).length > 0;
