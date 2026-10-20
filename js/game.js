@@ -218,7 +218,15 @@
     legalNow.forEach(([x, y]) => { if (board[y][x]) addMarker(ringGeo, capMat, x, y, 0.1); else addMarker(dotGeo, dotMat, x, y, 0.02); });
     let say = HINT[p.t];
     if (p.t === 'P' && XQRules.crossed(p, r)) say = '我已經過河了，現在可以往前或往左右走一格！';
-    if (!legalNow.length) say += ' 不過我現在沒有地方可以走。';
+    if (!legalNow.length) {
+      /* tell a pinned piece apart from a blocked one: it has moves on paper, but every one would expose its own king */
+      const pinned = XQRules.pseudo(board, f, r).length > 0;
+      say = pinned
+        ? `如果我離開這裡，${kingName(p.side)}就會有危險，所以我要留下來保護她！`
+        : say + ' 不過我現在被擋住了，沒有地方可以走。';
+    } else if (XQRules.pseudo(board, f, r).length > legalNow.length) {
+      say += ` 有些地方我不能去，因為那樣${kingName(p.side)}會有危險。`;
+    }
     speak(p.side, nm(p), say);
   }
 
