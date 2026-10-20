@@ -404,7 +404,7 @@
     });
     const pulse = 1 + Math.sin(now / 220) * 0.08; markers.forEach(m => m.scale.setScalar(pulse));
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
-    if (terrain && terrain.root.visible) terrain.update(now / 1000);
+    if (terrain && terrain.root.visible) terrain.update(now / 1000, camera, target);
     if (!camAnim) controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);

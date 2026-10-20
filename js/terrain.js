@@ -234,11 +234,35 @@
       flyMat.opacity = 0.6 + Math.sin(t * 3) * 0.3;
     });
 
+    /* landmarks that can stand between a low camera and the board: they fade out while they block the view */
+    const hills = root.children.filter(o => o.geometry && o.geometry.type === 'SphereGeometry' && o.scale.y === 0.35);
+    const landmarks = [pav, obs, ...hills].map(obj => {
+      const mats = [];
+      obj.traverse(o => {
+        if (!o.material) return;
+        o.material = o.material.clone(); o.material.transparent = true; mats.push(o.material);
+      });
+      const box = new THREE.Box3().setFromObject(obj), center = box.getCenter(new THREE.Vector3());
+      const radius = box.getSize(new THREE.Vector3()).length() / 2;
+      return { center, radius, mats, o: 1 };
+    });
+    const seg = new THREE.Line3(), closest = new THREE.Vector3();
+    function fadeLandmarks(camera, target) {
+      seg.set(camera.position, target);
+      landmarks.forEach(L => {
+        seg.closestPointToPoint(L.center, true, closest);
+        const blocking = closest.distanceTo(L.center) < L.radius * 0.9 && camera.position.distanceTo(L.center) < camera.position.distanceTo(target);
+        const want = blocking ? 0.18 : 1;
+        L.o += (want - L.o) * 0.15;
+        L.mats.forEach(m => { m.opacity = L.o; m.depthWrite = L.o > 0.95; });
+      });
+    }
+
     scene.add(root);
     return {
       root,
       fog: new THREE.Fog('#E7D3DF', 34, 80),
-      update(t) { anim.forEach(fn => fn(t)); }
+      update(t, camera, target) { anim.forEach(fn => fn(t)); if (camera) fadeLandmarks(camera, target); }
     };
   }
 
