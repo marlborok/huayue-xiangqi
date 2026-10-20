@@ -9,8 +9,8 @@
   const PX = 100;               /* canvas pixels per world unit */
 
   const SIDE = {
-    r: { grass: '#A7D98A', grassDark: '#8CC673', path: '#F5E9CC', pathEdge: '#C9B184', stone: '#FFF8EC', stoneEdge: '#BFA478', court: '#F8D9E0', courtLine: '#E9B6C2', mark: '#FF8FB1', ground: '#9DD07F' },
-    b: { grass: '#8A8FC4', grassDark: '#777CB5', path: '#E4E2F6', pathEdge: '#8F8BC2', stone: '#F3F1FF', stoneEdge: '#9C97CF', court: '#C8C6EC', courtLine: '#A9A5DA', mark: '#FFE38A', ground: '#8185BD' }
+    r: { grass: '#A7D98A', grassDark: '#8CC673', path: '#97928C', pathEdge: '#5F5A55', pebble: '#C9C4BD', stone: '#FFF8EC', stoneEdge: '#BFA478', court: '#F8D9E0', courtLine: '#E9B6C2', mark: '#FF8FB1', ground: '#9DD07F' },
+    b: { grass: '#8A8FC4', grassDark: '#777CB5', path: '#8C8B9C', pathEdge: '#4F4D66', pebble: '#BDBBCC', stone: '#F3F1FF', stoneEdge: '#9C97CF', court: '#C8C6EC', courtLine: '#A9A5DA', mark: '#FFE38A', ground: '#8185BD' }
   };
 
   function M(c, o) { return new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o || {})); }
@@ -49,12 +49,13 @@
     }
     segs.push([X(wx(3)), Y(wz(pr[0])), X(wx(5)), Y(wz(pr[1]))], [X(wx(5)), Y(wz(pr[0])), X(wx(3)), Y(wz(pr[1]))]);
     g.lineCap = 'round';
-    [[24, C.pathEdge], [17, C.path]].forEach(([w, c]) => {
+    /* grey roads: a dark kerb, then the road surface, so the grid reads clearly against the grass */
+    [[28, C.pathEdge], [20, C.path]].forEach(([w, c]) => {
       g.lineWidth = w; g.strokeStyle = c;
       segs.forEach(([a, b, c2, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c2, d); g.stroke(); });
     });
-    /* pebble dots on the paths */
-    g.fillStyle = C.pathEdge; g.globalAlpha = 0.35;
+    /* cobble specks on the roads */
+    g.fillStyle = C.pebble; g.globalAlpha = 0.5;
     segs.forEach(([a, b, c2, d]) => { const n = Math.hypot(c2 - a, d - b) / 14; for (let i = 0; i < n; i++) { const t = Math.random(); g.beginPath(); g.arc(a + (c2 - a) * t + Math.random() * 8 - 4, b + (d - b) * t + Math.random() * 8 - 4, 1.6, 0, 7); g.fill(); } });
     g.globalAlpha = 1;
 
