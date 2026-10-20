@@ -28,10 +28,20 @@
   scene.add(new THREE.HemisphereLight('#FFF4EC', '#C99A86', 0.8));
   const sun = new THREE.DirectionalLight('#FFFFFF', 0.7); sun.position.set(5, 14, 7); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); scene.add(sun);
+  /* two looks for the board: the classic wooden board on a table, or the terrain (js/terrain.js) */
+  const classic = new THREE.Group(); scene.add(classic);
   const table = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshStandardMaterial({ color: '#F1D3CB', roughness: 1 }));
-  table.rotation.x = -Math.PI / 2; table.position.y = -0.46; table.receiveShadow = true; scene.add(table);
+  table.rotation.x = -Math.PI / 2; table.position.y = -0.46; table.receiveShadow = true; classic.add(table);
   const base = new THREE.Mesh(new THREE.BoxGeometry(9.9, 0.45, 10.9), new THREE.MeshStandardMaterial({ color: '#B9783F', roughness: 0.8 }));
-  base.position.y = -0.225; base.receiveShadow = true; scene.add(base);
+  base.position.y = -0.225; base.receiveShadow = true; classic.add(base);
+  let terrain = null, terrainOn = !!window.XQTerrain;
+  function applyLook() {
+    if (terrainOn && !terrain && window.XQTerrain) terrain = XQTerrain.build(scene, aniso);
+    const on = terrainOn && !!terrain;
+    classic.visible = !on; if (terrain) terrain.root.visible = on;
+    scene.fog = on ? terrain.fog : null;
+    const btn = $('look'); if (btn) { btn.textContent = '地形：' + (on ? '花月大地' : '經典棋盤'); btn.setAttribute('aria-pressed', on); }
+  }
 
   const wx = f => f - 4, wz = r => 4.5 - r;
 
@@ -318,6 +328,7 @@
     $('more').textContent = open ? '收起設定' : '更多設定';
   }
   $('more').onclick = () => setPanel($('panel').hidden);
+  if ($('look')) $('look').onclick = () => { terrainOn = !terrainOn; applyLook(); };
   canvas.addEventListener('pointerdown', () => { if (!$('panel').hidden) setPanel(false); });
 
   $('home').onclick = async () => { if (busy) return; lock(true); await goHome(1200); lock(false); };
@@ -376,6 +387,7 @@
     });
     const pulse = 1 + Math.sin(now / 220) * 0.08; markers.forEach(m => m.scale.setScalar(pulse));
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
+    if (terrain && terrain.root.visible) terrain.update(now / 1000);
     if (!camAnim) controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
@@ -389,7 +401,8 @@
       ]);
     } catch (e) { /* fall back to system kai font */ }
     const bp = new THREE.Mesh(new THREE.PlaneGeometry(9.2, 10.2), new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.85 }));
-    bp.rotation.x = -Math.PI / 2; bp.position.y = 0.002; bp.receiveShadow = true; scene.add(bp);
+    bp.rotation.x = -Math.PI / 2; bp.position.y = 0.002; bp.receiveShadow = true; classic.add(bp);
+    applyLook();
     newState(); buildVisuals(); sync(); updateTurn(); updateTrays();
     resize(); const h = homeView('r'); camera.position.copy(h.pos); target.copy(h.look); camera.lookAt(target);
     $('loading').hidden = true;
