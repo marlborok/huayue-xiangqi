@@ -13,29 +13,36 @@
   <h1 class="brand"><span>花</span><b>月</b>象棋</h1>
   <div class="turn" id="turn" role="status"><i></i><span id="turnText">花之國（紅方）的回合</span></div>
 </header>
+<div class="msg gutter" id="bubble" aria-live="polite">
+  <p class="line"><span class="who" id="who">櫻花公主</span><span class="say" id="say">花之國先走！點一下棋子，看看它可以走到哪裡。</span></p>
+  <button id="again" class="primary" hidden>再玩一次</button>
+</div>
 <main class="stage">
   <canvas id="c" aria-label="3D 象棋棋盤"></canvas>
   <div class="loading" id="loading">角色準備中…</div>
-  <div class="bubble" id="bubble" aria-live="polite">
-    <div class="who" id="who">櫻花公主</div>
-    <div class="say" id="say">花之國先走！點一下棋子，看看它可以走到哪裡。拖曳可以旋轉，雙指或滾輪可以拉近看角色。</div>
-    <button id="again" class="primary" hidden>再玩一次</button>
-  </div>
 </main>
-<section class="trays gutter" aria-label="被吃掉的棋子">
-  <div class="tray" id="trayR">花之國收集到：</div>
-  <div class="tray" id="trayB">月之國收集到：</div>
-</section>
-<nav class="controls gutter" aria-label="遊戲控制">
-  <button id="undo">悔棋</button>
-  <button id="home">回到棋盤</button>
-  <button id="view">切換正俯視</button>
-  <button id="flip">從對面看</button>
-  <span class="sep" aria-hidden="true"></span>
-  <button id="cinema" aria-pressed="true">精彩特寫：開</button>
-  <button id="auto" aria-pressed="false">自動轉向：關</button>
-  <button id="restart">重新開始</button>
-</nav>
+<footer class="dock gutter">
+  <div class="panel gutter" id="panel" hidden>
+    <section class="trays" aria-label="被吃掉的棋子">
+      <div class="tray" id="trayR">花之國收集到：</div>
+      <div class="tray" id="trayB">月之國收集到：</div>
+    </section>
+    <div class="row" aria-label="視角">
+      <button id="view">切換正俯視</button>
+      <button id="flip">從對面看</button>
+    </div>
+    <div class="row" aria-label="遊戲設定">
+      <button id="cinema" aria-pressed="true">精彩特寫：開</button>
+      <button id="auto" aria-pressed="false">自動轉向：關</button>
+      <button id="restart">重新開始</button>
+    </div>
+  </div>
+  <nav class="row" aria-label="遊戲控制">
+    <button id="undo">悔棋</button>
+    <button id="home">回到棋盤</button>
+    <button id="more" class="more" aria-expanded="false" aria-controls="panel">更多設定</button>
+  </nav>
+</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>

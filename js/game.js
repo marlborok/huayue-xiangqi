@@ -21,7 +21,7 @@
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#FBEFEA');
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
   const controls = new THREE.OrbitControls(camera, canvas);
-  controls.maxPolarAngle = Math.PI / 2.1; controls.minDistance = 2.5; controls.maxDistance = 28;
+  controls.maxPolarAngle = Math.PI / 2.1; controls.minDistance = 2.5; controls.maxDistance = 45;
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   const target = controls.target;
 
@@ -113,11 +113,15 @@
 
   /* ---------- camera ---------- */
   let camAnim = false;
+  /* frame the whole board for any screen shape: take the larger of the distances needed to fit its height and its width */
   function homeView(side) {
-    const far = camera.aspect < 0.8 ? 1.55 : camera.aspect < 1.1 ? 1.2 : 1, s = side === 'r' ? 1 : -1;
-    return topMode
-      ? { pos: new THREE.Vector3(0, 16.5 * far, 0.02 * s), look: new THREE.Vector3(0, 0, 0) }
-      : { pos: new THREE.Vector3(0, 14.5 * far, 3.6 * far * s), look: new THREE.Vector3(0, 0, 0.25 * s) };
+    const s = side === 'r' ? 1 : -1, half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const fitH = 5.2 / half, fitW = 5.4 / (half * camera.aspect);
+    const dist = Math.max(fitH, fitW) * 1.04 + 1.6;
+    const phi = topMode ? 0.002 : 0.25;
+    const look = new THREE.Vector3(0, 0, topMode ? 0 : 0.25 * s);
+    const pos = new THREE.Vector3(0, dist * Math.cos(phi), dist * Math.sin(phi) * s).add(look);
+    return { pos, look };
   }
   /* move in spherical coordinates around a moving target, so turns orbit smoothly instead of cutting through the board */
   function camTo(pos, look, ms) {
@@ -126,7 +130,7 @@
     const b = new THREE.Spherical().setFromVector3(pos.clone().sub(look));
     let dt = b.theta - a.theta; while (dt > Math.PI) dt -= 2 * Math.PI; while (dt < -Math.PI) dt += 2 * Math.PI;
     const s = new THREE.Spherical();
-    camAnim = true; controls.enabled = false;
+    camAnim = true; controls.enabled = false; atHome = false;
     return tw(D(ms), t => {
       const e = es(t);
       target.lerpVectors(t0, look, e);
@@ -134,7 +138,10 @@
       camera.position.setFromSpherical(s).add(target); camera.lookAt(target);
     }).then(() => { camAnim = false; controls.enabled = true; });
   }
-  const goHome = ms => { const h = homeView(viewSide); return camTo(h.pos, h.look, ms); };
+  /* while the camera sits at the home view, a resize (phone rotation, address bar) re-frames the board */
+  let atHome = true;
+  controls.addEventListener('start', () => { atHome = false; });
+  const goHome = ms => { const h = homeView(viewSide); return camTo(h.pos, h.look, ms).then(() => { atHome = true; }); };
   /* close-up from the front of a piece: red pieces face -z, black pieces face +z */
   function closeUp(f, r, side) {
     const x = wx(f), z = wz(r), front = side === 'r' ? -1 : 1;
@@ -304,6 +311,15 @@
     speak(turn, kingName(turn), `退回一步，${KINGDOM[turn]}再想想看！`);
     if (autoTurn && viewSide !== turn) { lock(true); viewSide = turn; await goHome(2400); lock(false); }
   };
+  /* settings panel: closed by default, closes again when the board is touched */
+  function setPanel(open) {
+    $('panel').hidden = !open;
+    $('more').setAttribute('aria-expanded', open);
+    $('more').textContent = open ? '收起設定' : '更多設定';
+  }
+  $('more').onclick = () => setPanel($('panel').hidden);
+  canvas.addEventListener('pointerdown', () => { if (!$('panel').hidden) setPanel(false); });
+
   $('home').onclick = async () => { if (busy) return; lock(true); await goHome(1200); lock(false); };
   $('view').onclick = async () => {
     if (busy) return; topMode = !topMode; $('view').textContent = topMode ? '切換近俯視' : '切換正俯視';
@@ -342,6 +358,7 @@
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    if (atHome && !camAnim && board) { const v = homeView(viewSide); camera.position.copy(v.pos); target.copy(v.look); camera.lookAt(target); }
   }
   new ResizeObserver(resize).observe(canvas);
 

@@ -18,27 +18,42 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 .turn.moon { background: var(--moon-soft); color: var(--moon); }
 .turn i { width: 12px; height: 12px; border-radius: 50%; background: currentColor; display: block; }
 
+/* message strip: sits between the top bar and the board, so it never covers the game */
+.msg { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-block: 8px; background: var(--flower-soft); border-bottom: 1px solid var(--line); min-height: 44px; box-sizing: border-box; transition: background .3s; }
+.msg.moon { background: var(--moon-soft); }
+.msg .line { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 15px; line-height: 1.5; }
+.msg .who { font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--flower); margin-right: 8px; }
+.msg.moon .who { color: var(--moon); }
+
 .stage { position: relative; flex: 1; min-height: 0; }
 #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 22px; color: var(--muted); }
-.bubble { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 14px; max-width: min(420px, calc(100% - 32px)); background: var(--panel); border: 2px solid var(--ink); border-radius: 18px; padding: 12px 16px; box-shadow: 0 6px 0 rgba(59, 42, 47, .12); display: flex; flex-direction: column; gap: 4px; }
-.bubble .who { font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--flower); }
-.bubble.moon .who { color: var(--moon); }
-.bubble .say { font-size: 15px; line-height: 1.6; }
-.bubble button { align-self: flex-start; margin-top: 6px; }
 
-.trays { display: flex; flex-direction: column; gap: 6px; padding-block: 8px; background: var(--panel); border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+/* bottom dock: the everyday buttons stay; everything else folds into a panel that floats over the board */
+.dock { position: relative; background: var(--panel); border-top: 1px solid var(--line); padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+.dock .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.panel { position: absolute; left: 0; right: 0; bottom: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; background: var(--panel); border-top: 1px solid var(--line); box-shadow: 0 -8px 20px rgba(59, 42, 47, .10); }
+.more::after { content: " ▴"; } .more[aria-expanded="true"]::after { content: " ▾"; }
+
+.trays { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .tray { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 26px; }
 .chip { font-family: var(--display); font-weight: 700; width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 15px; border: 2px solid; }
 .chip.r { color: var(--flower); border-color: var(--flower); background: var(--flower-soft); }
 .chip.b { color: var(--moon); border-color: var(--moon); background: var(--moon-soft); }
 
-.controls { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); background: var(--panel); }
-.controls .sep { width: 1px; background: var(--line); margin: 0 4px; }
 button { font-family: var(--body); font-size: 15px; font-weight: 700; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--ink); background: var(--panel); color: var(--ink); cursor: pointer; }
 button:hover:not(:disabled) { background: var(--flower-soft); }
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 button.primary { background: var(--ink); color: #FFFFFF; }
 button.warn { background: var(--flower); border-color: var(--flower); color: #FFFFFF; }
+@media (max-width: 480px) {
+  .bar { padding-block: 6px; }
+  .brand { font-size: 22px; }
+  .turn { font-size: 14px; padding: 6px 12px; }
+  .msg { padding-block: 6px; }
+  .msg .line { font-size: 14px; }
+  .msg .who { font-size: 16px; }
+  .dock .row button { flex: 1 1 auto; padding: 0 12px; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
