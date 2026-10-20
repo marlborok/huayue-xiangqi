@@ -9,8 +9,8 @@
   const PX = 100;               /* canvas pixels per world unit */
 
   const SIDE = {
-    r: { grass: '#A7D98A', grassDark: '#8CC673', path: '#97928C', pathEdge: '#5F5A55', pebble: '#C9C4BD', stone: '#FFF8EC', stoneEdge: '#BFA478', court: '#F8D9E0', courtLine: '#E9B6C2', mark: '#FF8FB1', ground: '#9DD07F' },
-    b: { grass: '#8A8FC4', grassDark: '#777CB5', path: '#8C8B9C', pathEdge: '#4F4D66', pebble: '#BDBBCC', stone: '#F3F1FF', stoneEdge: '#9C97CF', court: '#C8C6EC', courtLine: '#A9A5DA', mark: '#FFE38A', ground: '#8185BD' }
+    r: { grass: '#A7D98A', grassDark: '#8CC673', path: '#97928C', pathEdge: '#5F5A55', pebble: '#C9C4BD', stone: '#ACA7A0', stoneEdge: '#6F6A64', court: '#F8D9E0', courtLine: '#E9B6C2', mark: '#FF8FB1', ground: '#9DD07F' },
+    b: { grass: '#8A8FC4', grassDark: '#777CB5', path: '#8C8B9C', pathEdge: '#4F4D66', pebble: '#BDBBCC', stone: '#A3A2B4', stoneEdge: '#5E5C78', court: '#C8C6EC', courtLine: '#A9A5DA', mark: '#FFE38A', ground: '#8185BD' }
   };
 
   function M(c, o) { return new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o || {})); }
@@ -59,10 +59,10 @@
     segs.forEach(([a, b, c2, d]) => { const n = Math.hypot(c2 - a, d - b) / 14; for (let i = 0; i < n; i++) { const t = Math.random(); g.beginPath(); g.arc(a + (c2 - a) * t + Math.random() * 8 - 4, b + (d - b) * t + Math.random() * 8 - 4, 1.6, 0, 7); g.fill(); } });
     g.globalAlpha = 1;
 
-    /* stepping stones on every point */
+    /* stepping stones on every point: a quiet round paving just a shade lighter than the road */
     ranks.forEach(r => { for (let f = 0; f < 9; f++) {
-      g.fillStyle = C.stone; g.strokeStyle = C.stoneEdge; g.lineWidth = 4;
-      g.beginPath(); g.arc(X(wx(f)), Y(wz(r)), 24, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = C.stone; g.strokeStyle = C.stoneEdge; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(X(wx(f)), Y(wz(r)), 18, 0, 7); g.fill(); g.stroke();
     } });
 
     /* cannon and pawn points: flowers on the meadow, little stars in the moon land */
