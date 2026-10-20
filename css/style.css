@@ -1,0 +1,44 @@
+/* 花月象棋 — one-screen game: top bar (turn), 3D board filling the middle with a speech bubble, trays and controls below.
+   Single warm look on purpose (a toy on the table), so no dark theme. */
+:root {
+  --bg: #FBEFEA; --panel: #FFFFFF; --ink: #3B2A2F; --muted: #7A6066; --line: #EAD3CC;
+  --flower: #D9445C; --flower-soft: #FCE3E7; --moon: #34457E; --moon-soft: #E7E9F7; --gold: #C98A1B;
+  --display: "LXGW WenKai TC", "Kaiti TC", "STKaiti", "KaiTi", serif;
+  --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); display: flex; flex-direction: column; overflow: hidden; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding-block: 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: 2px; margin: 0; }
+.brand span { color: var(--flower); } .brand b { color: var(--moon); font-weight: 700; }
+.turn { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 8px 14px; border-radius: 999px; background: var(--flower-soft); color: var(--flower); transition: background .3s, color .3s; }
+.turn.moon { background: var(--moon-soft); color: var(--moon); }
+.turn i { width: 12px; height: 12px; border-radius: 50%; background: currentColor; display: block; }
+
+.stage { position: relative; flex: 1; min-height: 0; }
+#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 22px; color: var(--muted); }
+.bubble { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 14px; max-width: min(420px, calc(100% - 32px)); background: var(--panel); border: 2px solid var(--ink); border-radius: 18px; padding: 12px 16px; box-shadow: 0 6px 0 rgba(59, 42, 47, .12); display: flex; flex-direction: column; gap: 4px; }
+.bubble .who { font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--flower); }
+.bubble.moon .who { color: var(--moon); }
+.bubble .say { font-size: 15px; line-height: 1.6; }
+.bubble button { align-self: flex-start; margin-top: 6px; }
+
+.trays { display: flex; flex-direction: column; gap: 6px; padding-block: 8px; background: var(--panel); border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.tray { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 26px; }
+.chip { font-family: var(--display); font-weight: 700; width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 15px; border: 2px solid; }
+.chip.r { color: var(--flower); border-color: var(--flower); background: var(--flower-soft); }
+.chip.b { color: var(--moon); border-color: var(--moon); background: var(--moon-soft); }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); background: var(--panel); }
+.controls .sep { width: 1px; background: var(--line); margin: 0 4px; }
+button { font-family: var(--body); font-size: 15px; font-weight: 700; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--ink); background: var(--panel); color: var(--ink); cursor: pointer; }
+button:hover:not(:disabled) { background: var(--flower-soft); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+button.primary { background: var(--ink); color: #FFFFFF; }
+button.warn { background: var(--flower); border-color: var(--flower); color: #FFFFFF; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

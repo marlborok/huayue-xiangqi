@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>花月象棋</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="bar gutter">
+  <h1 class="brand"><span>花</span><b>月</b>象棋</h1>
+  <div class="turn" id="turn" role="status"><i></i><span id="turnText">花之國（紅方）的回合</span></div>
+</header>
+<main class="stage">
+  <canvas id="c" aria-label="3D 象棋棋盤"></canvas>
+  <div class="loading" id="loading">角色準備中…</div>
+  <div class="bubble" id="bubble" aria-live="polite">
+    <div class="who" id="who">櫻花公主</div>
+    <div class="say" id="say">花之國先走！點一下棋子，看看它可以走到哪裡。拖曳可以旋轉，雙指或滾輪可以拉近看角色。</div>
+    <button id="again" class="primary" hidden>再玩一次</button>
+  </div>
+</main>
+<section class="trays gutter" aria-label="被吃掉的棋子">
+  <div class="tray" id="trayR">花之國收集到：</div>
+  <div class="tray" id="trayB">月之國收集到：</div>
+</section>
+<nav class="controls gutter" aria-label="遊戲控制">
+  <button id="undo">悔棋</button>
+  <button id="home">回到棋盤</button>
+  <button id="view">切換正俯視</button>
+  <button id="flip">從對面看</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="cinema" aria-pressed="true">精彩特寫：開</button>
+  <button id="auto" aria-pressed="false">自動轉向：關</button>
+  <button id="restart">重新開始</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/figures.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
