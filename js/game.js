@@ -85,7 +85,7 @@
       const hold = new THREE.Group(); hold.rotation.y = p.side === 'b' ? Math.PI : 0; outer.add(hold);
       const key = p.side + p.t; badgeCache[key] = badgeCache[key] || badgeTexture(p.side, CH[p.t][p.side], aniso);
       const hm = new THREE.MeshBasicMaterial({ map: badgeCache[key], transparent: true, depthWrite: false });
-      const halo = new THREE.Mesh(new THREE.CircleGeometry(0.3, 40), hm);
+      const halo = new THREE.Mesh(new THREE.CircleGeometry(0.36, 40), hm);
       halo.rotation.x = -Math.PI / 2 + 0.3; halo.position.y = BADGE_Y[p.t]; halo.renderOrder = 2; hold.add(halo);
       const sm = new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#D9445C' : '#34457E', transparent: true });
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), sm); stem.position.y = BADGE_Y[p.t] - 0.1; hold.add(stem);
@@ -378,7 +378,7 @@
   }
 
   /* ---------- loop ---------- */
-  const tmp = new THREE.Vector3();
+  const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
@@ -395,6 +395,10 @@
     Object.values(vis).forEach(v => {
       if (!v.outer.visible) return;
       v.halo.getWorldPosition(tmp);
+      /* tilt each badge with the camera's viewing angle: pitch only, so the text keeps facing its own player like a real piece */
+      tmp2.copy(camera.position); v.halo.parent.worldToLocal(tmp2); tmp2.sub(v.halo.position);
+      const pitch = Math.max(-1.35, Math.min(1.35, Math.atan2(tmp2.z, tmp2.y)));
+      v.halo.rotation.x = -Math.PI / 2 + pitch;
       const d = camera.position.distanceTo(tmp), k = Math.min(1, Math.max(0, (d - 3.6) / 2.6)), o = k * k * (3 - 2 * k);
       v.mats.forEach(m => { m.opacity = o; }); v.halo.visible = o > 0.01;
     });

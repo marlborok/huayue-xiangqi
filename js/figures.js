@@ -103,9 +103,12 @@
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
     const main = side === 'r' ? '#D9445C' : '#34457E', acc = side === 'r' ? '#F2BE4A' : '#B7A6F0';
     g.fillStyle = main; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill();
-    g.fillStyle = '#FFFFFF'; g.beginPath(); g.arc(128, 128, 104, 0, 7); g.fill();
-    g.strokeStyle = acc; g.lineWidth = 6; g.setLineDash([8, 8]); g.beginPath(); g.arc(128, 128, 114, 0, 7); g.stroke();
-    g.fillStyle = main; g.font = '700 150px "LXGW WenKai TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, 128, 140);
+    g.fillStyle = '#FFFFFF'; g.beginPath(); g.arc(128, 128, 112, 0, 7); g.fill();
+    g.strokeStyle = acc; g.lineWidth = 4; g.setLineDash([8, 8]); g.beginPath(); g.arc(128, 128, 119, 0, 7); g.stroke(); g.setLineDash([]);
+    /* large glyph, thickened with a stroke of the same colour so it reads as bold even at small sizes */
+    g.font = '700 184px "LXGW WenKai TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineJoin = 'round'; g.strokeStyle = main; g.lineWidth = 9; g.strokeText(ch, 128, 140);
+    g.fillStyle = main; g.fillText(ch, 128, 140);
     const t = new THREE.CanvasTexture(cv); t.anisotropy = aniso || 1; return t;
   }
 
