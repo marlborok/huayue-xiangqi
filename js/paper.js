@@ -19,16 +19,30 @@
     const tx = new THREE.Texture(img); tx.needsUpdate = true; tex[s][t] = tx; size[s][t] = img.width / img.height;
   }))).then(() => true, () => false);
 
+  let blobM = null;
+  function blobMat() {
+    if (blobM) return blobM;
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const g = cv.getContext('2d');
+    const gr = g.createRadialGradient(64, 32, 0, 64, 32, 32);
+    gr.addColorStop(0, 'rgba(60,30,40,0.55)'); gr.addColorStop(0.6, 'rgba(60,30,40,0.22)'); gr.addColorStop(1, 'rgba(60,30,40,0)');
+    g.setTransform(2, 0, 0, 1, -64, 0); g.fillStyle = gr; g.fillRect(0, 0, 128, 64);
+    blobM = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, toneMapped: false });
+    return blobM;
+  }
+
   function figure(side, t, aniso) {
     const map = tex[side][t]; map.anisotropy = aniso || 1;
     const H = HEIGHT[t], W = H * size[side][t];
     const g = new THREE.Group(), card = new THREE.Group(); g.add(card);
     /* unlit: the illustration carries its own shading, scene lights would only muddy it */
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, toneMapped: false }));
     m.position.y = H / 2; m.castShadow = true;
     m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.35 });
     card.add(m);
     const top = new THREE.Object3D(); top.position.y = H; card.add(top);
+    /* contact shadow: a soft dark smudge right under her feet, so the card reads as standing on the land */
+    const blob = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.75, 0.42), blobMat());
+    blob.rotation.x = -Math.PI / 2; blob.position.y = 0.012; blob.renderOrder = 1; g.add(blob);
     g.userData.card = card; g.userData.top = top;
     return g;
   }

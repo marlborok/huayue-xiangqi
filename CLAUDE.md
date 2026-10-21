@@ -8,11 +8,12 @@
 - 純前端、無建置步驟：three.js r128 + OrbitControls（CDN 的 UMD 版，全域 `THREE`），Google Fonts 霞鶩文楷 TC / Noto Sans TC
 - 本機測試：`python3 -m http.server 8000`
 - 部署：GitHub Pages（main 分支根目錄）
-- 腳本依序載入：`rules.js` → `figures.js` → `paper.js` → `terrain.js` → `game.js`，各自掛在 `window.XQRules` / `XQFigures` / `XQPaper` / `XQTerrain`
+- 腳本依序載入：`RoomEnvironment.js`（CDN）→ `look.js` → `rules.js` → `figures.js` → `paper.js` → `terrain.js` → `game.js`，各自掛在 `window.XQLook` / `XQRules` / `XQFigures` / `XQPaper` / `XQTerrain`
 
 ## 檔案
 
 - `js/rules.js`：純規則，不碰畫面。`board[rank][file]`，file 0–8，rank 0–9（紅方底線 = 0）。含蹩馬腿、塞象眼、炮隔子、將帥不照面、不能送將、無路可走判負
+- `js/look.js`：畫面調光（2026-10-22）。sRGB 輸出＋RoomEnvironment 天光；r128 沒有自動色彩管理，`manage()` 每格把新物件的 hex 顏色、貼圖、頂點色、燈光、霧轉成線性（標記過就跳過）。**不用 ACES**：試過，粉彩的草地和花瓣會變灰。紙偶卡片 `toneMapped: false` 保留插畫原色
 - `js/figures.js`：幾何角色 `figure(side, t)`（插畫載入失敗時的備用）與徽章貼圖 `badgeTexture()`
 - `js/paper.js`：紙偶角色。`assets/paper/{flower|moon}-{K,A,B,R,N,C,P}.png` 的水彩插畫立成卡片，每格轉向鏡頭並往後仰（`LEAN_BACK`），徽章跟著頭頂走
 - `docs/角色繪圖提示詞.md`：14 個角色的繪圖提示詞；原圖在 `花之國/`、`月之國/`（不進版控），去背後放 `assets/paper/`

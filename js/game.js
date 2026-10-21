@@ -23,13 +23,14 @@
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const aniso = renderer.capabilities.getMaxAnisotropy();
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#FBEFEA');
+  const look = !!window.XQLook; if (look) XQLook.setup(renderer, scene);   /* color space, tone mapping, sky light (js/look.js) */
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
   const controls = new THREE.OrbitControls(camera, canvas);
   controls.maxPolarAngle = Math.PI / 2.1; controls.minDistance = 2.5; controls.maxDistance = 45;
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   const target = controls.target;
 
-  scene.add(new THREE.HemisphereLight('#FFF4EC', '#C99A86', 0.8));
+  scene.add(new THREE.HemisphereLight('#FFF4EC', '#C99A86', look ? 0.45 : 0.8));
   const sun = new THREE.DirectionalLight('#FFFFFF', 0.7); sun.position.set(5, 14, 7); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); scene.add(sun);
   /* two looks for the board: the classic wooden board on a table, or the terrain (js/terrain.js) */
@@ -421,6 +422,7 @@
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
     if (terrain && terrain.root.visible) terrain.update(now / 1000, camera, target);
     if (!camAnim) controls.update();
+    if (look) XQLook.manage(scene);   /* new objects (particles, markers, the other board look) get converted before they are drawn */
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
   }
