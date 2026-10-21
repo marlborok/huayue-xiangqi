@@ -24,7 +24,7 @@
 <canvas id="c"></canvas>
 <div class="paper" id="paper"></div>
 <div class="vignette"></div>
-<div class="info"><b>紙偶繪本示範</b><br>插畫角色立在 3D 棋盤上，會轉向鏡頭。花之國是正式插畫，月之國暫時用花之國的圖換色代替。拖曳可旋轉、縮放。</div>
+<div class="info"><b>紙偶繪本示範</b><br>插畫角色立在 3D 棋盤上，會轉向鏡頭。兩國都是正式插畫。拖曳可旋轉、縮放。</div>
 <div class="tools">
   <button id="paperBtn" aria-pressed="true">紙紋</button>
   <button id="badgeBtn" aria-pressed="true">徽章</button>
@@ -58,16 +58,12 @@
 
   const TYPES = ['K', 'A', 'B', 'R', 'N', 'C', 'P'];
   const load = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
-  const imgs = {}; await Promise.all(TYPES.map(async t => { imgs[t] = await load(`assets/paper/flower-${t}.png`); }));
-  /* moon kingdom stand-in until its pictures exist: the flower picture, mirrored and shifted to lavender/blue */
-  function variant(img, flip, filter) {
-    const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const g = cv.getContext('2d');
-    if (flip) { g.translate(cv.width, 0); g.scale(-1, 1); }
-    g.filter = filter || 'none'; g.drawImage(img, 0, 0);
-    const t = new THREE.CanvasTexture(cv); t.anisotropy = aniso; return t;
-  }
-  const tex = { r: {}, b: {} };
-  TYPES.forEach(t => { tex.r[t] = variant(imgs[t], false); tex.b[t] = variant(imgs[t], true, 'hue-rotate(215deg) saturate(0.85) brightness(0.95)'); });
+  const FILE = { r: 'flower', b: 'moon' };
+  const imgs = { r: {}, b: {} }, tex = { r: {}, b: {} };
+  await Promise.all(['r', 'b'].flatMap(s => TYPES.map(async t => {
+    const img = imgs[s][t] = await load(`assets/paper/${FILE[s]}-${t}.png`);
+    const tx = tex[s][t] = new THREE.Texture(img); tx.anisotropy = aniso; tx.needsUpdate = true;
+  })));
   /* card height per role: the queen a little taller, the little soldier shorter, the rider wider */
   const HEIGHT = { K: 1.2, A: 1.1, B: 1.1, R: 1.1, N: 1.15, C: 1.1, P: 0.9 };
 
@@ -78,7 +74,7 @@
     const root = new THREE.Group(); root.position.set(file - 4, 0, 4.5 - rank); scene.add(root);
     const doll = new THREE.Group(); root.add(doll);
     /* unlit: the illustration already carries its own shading, scene lights would only muddy it */
-    const map = tex[side][t], H = HEIGHT[t], W = H * imgs[t].width / imgs[t].height;
+    const map = tex[side][t], H = HEIGHT[t], W = H * imgs[side][t].width / imgs[side][t].height;
     const mat = new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide });
     const card = new THREE.Mesh(new THREE.PlaneGeometry(W, H), mat); card.position.y = H / 2; card.castShadow = true;
     card.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.35 });
