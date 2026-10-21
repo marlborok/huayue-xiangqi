@@ -30,9 +30,11 @@
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   const target = controls.target;
 
-  scene.add(new THREE.HemisphereLight('#FFF4EC', '#C99A86', look ? 0.45 : 0.8));
-  const sun = new THREE.DirectionalLight('#FFFFFF', 0.7); sun.position.set(5, 14, 7); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); scene.add(sun);
+  /* watercolor light: a strong soft fill with a lavender ground colour, so shadows come out pale and tinted rather than grey,
+   * and a weaker sun whose low-resolution shadow map gives blurred, gentle edges */
+  scene.add(new THREE.HemisphereLight('#FFF6EE', look ? '#B4A6D4' : '#C99A86', look ? 0.62 : 0.8));
+  const sun = new THREE.DirectionalLight('#FFF4E8', look ? 0.5 : 0.7); sun.position.set(5, 14, 7); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); scene.add(sun);
   /* two looks for the board: the classic wooden board on a table, or the terrain (js/terrain.js) */
   const classic = new THREE.Group(); scene.add(classic);
   const table = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshStandardMaterial({ color: '#F1D3CB', roughness: 1 }));

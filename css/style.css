@@ -27,6 +27,10 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 
 .stage { position: relative; flex: 1; min-height: 0; }
 #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+/* watercolor paper laid over the whole picture, so the characters and the land share one sheet of paper */
+.stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .45;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .35  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(ellipse at center, transparent 60%, rgba(150, 110, 80, .18) 100%); }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 22px; color: var(--muted); }
 [hidden] { display: none !important; }  /* class display rules (.loading, .panel) would otherwise beat the hidden attribute */
 
