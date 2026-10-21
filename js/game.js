@@ -1,7 +1,11 @@
 /* 花月象棋 — scene, input, camera and close-ups */
 (function () {
   const { CH, NAME, HINT, KINGDOM } = XQRules;
-  const { figure, badgeTexture, BADGE_Y, M } = XQFigures;
+  const { badgeTexture, M } = XQFigures;
+  /* characters: the paper-doll illustrations (js/paper.js) once loaded, the geometric placeholders otherwise */
+  let paper = false;
+  const figure = (side, t) => paper ? XQPaper.figure(side, t, aniso) : XQFigures.figure(side, t);
+  const badgeY = t => (paper ? XQPaper.BADGE_Y : XQFigures.BADGE_Y)[t];
   const nm = p => NAME[p.t][p.side === 'r' ? 0 : 1];
   const kingName = s => NAME.K[s === 'r' ? 0 : 1];
   const $ = id => document.getElementById(id);
@@ -77,20 +81,25 @@
       const outer = new THREE.Group(), orient = new THREE.Group(), tilt = new THREE.Group();
       outer.add(orient);
       if (p.side === 'r') orient.rotation.y = Math.PI;   /* red faces -z (toward black), black faces +z */
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.08, 40), M(p.side === 'r' ? '#D9445C' : '#34457E', { roughness: 0.4 }));
-      disc.position.y = 0.04; disc.castShadow = true; disc.receiveShadow = true; orient.add(disc);
-      tilt.position.y = 0.08; tilt.rotation.x = LEAN; orient.add(tilt);
+      if (paper) { /* a soft watercolor pool under the paper doll, instead of a solid base that hides her feet */
+        const pool = new THREE.Mesh(new THREE.CircleGeometry(0.4, 40), new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#E58A9C' : '#8E8CCB', transparent: true, opacity: 0.5, depthWrite: false }));
+        pool.rotation.x = -Math.PI / 2; pool.position.y = 0.015; orient.add(pool);
+      } else {
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.08, 40), M(p.side === 'r' ? '#D9445C' : '#34457E', { roughness: 0.4 }));
+        disc.position.y = 0.04; disc.castShadow = true; disc.receiveShadow = true; orient.add(disc);
+      }
+      tilt.position.y = paper ? 0.02 : 0.08; tilt.rotation.x = LEAN; orient.add(tilt);
       const fig = figure(p.side, p.t); tilt.add(fig);
       /* floating badge: flat, readable from straight above, upright for its own player like a real piece */
       const hold = new THREE.Group(); hold.rotation.y = p.side === 'b' ? Math.PI : 0; outer.add(hold);
       const key = p.side + p.t; badgeCache[key] = badgeCache[key] || badgeTexture(p.side, CH[p.t][p.side], aniso);
       const hm = new THREE.MeshBasicMaterial({ map: badgeCache[key], transparent: true, depthWrite: false });
-      const halo = new THREE.Mesh(new THREE.CircleGeometry(0.36, 40), hm);
-      halo.rotation.x = -Math.PI / 2 + 0.3; halo.position.y = BADGE_Y[p.t]; halo.renderOrder = 2; hold.add(halo);
+      const halo = new THREE.Mesh(new THREE.CircleGeometry(paper ? 0.28 : 0.36, 40), hm);
+      halo.rotation.x = -Math.PI / 2 + 0.3; halo.position.y = badgeY(p.t); halo.renderOrder = 2; hold.add(halo);
       const sm = new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#D9445C' : '#34457E', transparent: true });
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), sm); stem.position.y = BADGE_Y[p.t] - 0.1; hold.add(stem);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), sm); stem.position.y = badgeY(p.t) - 0.1; hold.add(stem);
       scene.add(outer);
-      vis[p.id] = { outer, tilt, fig, halo, mats: [hm, sm] };
+      vis[p.id] = { outer, tilt, fig, halo, stem, mats: [hm, sm] };
     }
   }
   function sync() {
@@ -128,7 +137,8 @@
     const s = side === 'r' ? 1 : -1, half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const fitH = 5.2 / half, fitW = 5.4 / (half * camera.aspect);
     const dist = Math.max(fitH, fitW) * 1.04 + 1.6;
-    const phi = topMode ? 0.002 : 0.25;
+    /* paper dolls are flat cards, so they need a lower camera than the 3D figures to be seen standing */
+    const phi = topMode ? 0.002 : paper ? 0.6 : 0.25;
     const look = new THREE.Vector3(0, 0, topMode ? 0 : 0.25 * s);
     const pos = new THREE.Vector3(0, dist * Math.cos(phi), dist * Math.sin(phi) * s).add(look);
     return { pos, look };
@@ -394,6 +404,11 @@
     /* badges fade out as the camera comes close, so close-ups and zoomed-in viewing show the characters cleanly */
     Object.values(vis).forEach(v => {
       if (!v.outer.visible) return;
+      if (paper) { /* paper dolls lean back toward the camera: keep the badge above her head, not above her feet */
+        XQPaper.face(v.fig, camera);
+        v.halo.parent.worldToLocal(XQPaper.top(v.fig, tmp)); tmp.y += XQPaper.BADGE_UP;
+        v.halo.position.copy(tmp); v.stem.position.set(tmp.x, tmp.y - 0.1, tmp.z);
+      }
       v.halo.getWorldPosition(tmp);
       /* tilt each badge with the camera's viewing angle: pitch only, so the text keeps facing its own player like a real piece */
       tmp2.copy(camera.position); v.halo.parent.worldToLocal(tmp2); tmp2.sub(v.halo.position);
@@ -417,6 +432,7 @@
         new Promise(r => setTimeout(r, 3000))
       ]);
     } catch (e) { /* fall back to system kai font */ }
+    paper = window.XQPaper ? await XQPaper.ready : false;
     const bp = new THREE.Mesh(new THREE.PlaneGeometry(9.2, 10.2), new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.85 }));
     bp.rotation.x = -Math.PI / 2; bp.position.y = 0.002; bp.receiveShadow = true; classic.add(bp);
     applyLook();

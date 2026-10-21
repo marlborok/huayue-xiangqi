@@ -8,12 +8,14 @@
 - 純前端、無建置步驟：three.js r128 + OrbitControls（CDN 的 UMD 版，全域 `THREE`），Google Fonts 霞鶩文楷 TC / Noto Sans TC
 - 本機測試：`python3 -m http.server 8000`
 - 部署：GitHub Pages（main 分支根目錄）
-- 腳本依序載入：`rules.js` → `figures.js` → `terrain.js` → `game.js`，各自掛在 `window.XQRules` / `XQFigures` / `XQTerrain`
+- 腳本依序載入：`rules.js` → `figures.js` → `paper.js` → `terrain.js` → `game.js`，各自掛在 `window.XQRules` / `XQFigures` / `XQPaper` / `XQTerrain`
 
 ## 檔案
 
 - `js/rules.js`：純規則，不碰畫面。`board[rank][file]`，file 0–8，rank 0–9（紅方底線 = 0）。含蹩馬腿、塞象眼、炮隔子、將帥不照面、不能送將、無路可走判負
-- `js/figures.js`：暫代的幾何角色 `figure(side, t)` 與徽章貼圖 `badgeTexture()`
+- `js/figures.js`：幾何角色 `figure(side, t)`（插畫載入失敗時的備用）與徽章貼圖 `badgeTexture()`
+- `js/paper.js`：紙偶角色。`assets/paper/{flower|moon}-{K,A,B,R,N,C,P}.png` 的水彩插畫立成卡片，每格轉向鏡頭並往後仰（`LEAN_BACK`），徽章跟著頭頂走
+- `docs/角色繪圖提示詞.md`：14 個角色的繪圖提示詞；原圖在 `花之國/`、`月之國/`（不進版控），去背後放 `assets/paper/`
 - `js/terrain.js`：「花月大地」地形，`build(scene, aniso)` 回傳 `{ root, fog, update(t, camera, target) }`
 - `js/game.js`：場景、點選與走棋、鏡頭、特寫、介面
 - 座標：`x = file - 4`、`z = 4.5 - rank`；紅方在 +z，黑方在 -z
@@ -23,7 +25,7 @@
 - 角色面向敵陣、微微前傾（`LEAN = 0.12`），象徵棋子只往前進攻；不要改成面向自己的玩家
 - 辨識靠頭頂浮空徽章，不靠角色模型：字大且粗，方向跟真實象棋一樣（紅字朝紅方、黑字朝黑方），只隨鏡頭俯仰傾斜、不左右轉；鏡頭靠近時依距離淡出
 - 點選以格子位置判斷（射線打在 y=0.4 的平面），與模型大小無關
-- 預設近俯視；自動轉向預設關閉（面對面下棋不需要），開啟時要和緩、會在高處越過棋盤
+- 預設近俯視（紙偶角色時鏡頭較低，`phi` 0.6，不然卡片會被看成側面）；自動轉向預設關閉（面對面下棋不需要），開啟時要和緩、會在高處越過棋盤
 - 精彩特寫：吃子、將軍、獲勝時從角色正面拉近，結束後慢慢回到棋盤
 - 吃子演出不能有打鬥或倒下，被吃的棋子化成花瓣或星星飄走
 - 地形：棋盤內保持平坦，只有河道下陷；格線是灰色道路，節點是低調的灰色圓石；高的造景只放棋盤外，擋住視線時自動半透明
@@ -39,7 +41,7 @@
 ## 下一步（依優先順序）
 
 1. 將 `terrain-sketch` 合併回 main 並部署到 GitHub Pages
-2. 換上 Tripo 產出的 GLB 角色：用 GLTFLoader 取代 `figure()`；模型面向 +z、站在 y=0、高約 1；先用 gltf-transform 壓縮；放在 `assets/characters/`
+2. ~~換上角色~~：改走紙偶繪本風（2026-10-22），Tripo 免費額度不夠。14 張插畫已接上
 3. 面對面模式：提示列依輪到的一方出現在該側並轉向，按鈕兩側各一組
 4. 欣賞模式：點角色聚焦、繞著看；角色圖鑑頁
 5. 電腦對手（例如 Pikafish）與連線對戰（使用者熟悉 Supabase Realtime）
