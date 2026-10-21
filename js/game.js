@@ -83,7 +83,7 @@
       outer.add(orient);
       if (p.side === 'r') orient.rotation.y = Math.PI;   /* red faces -z (toward black), black faces +z */
       if (paper) { /* a soft watercolor pool under the paper doll, instead of a solid base that hides her feet */
-        const pool = new THREE.Mesh(new THREE.CircleGeometry(0.4, 40), new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#E58A9C' : '#8E8CCB', transparent: true, opacity: 0.5, depthWrite: false }));
+        const pool = new THREE.Mesh(new THREE.CircleGeometry(0.4, 40), new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#C9B89A' : '#8E8CCB', transparent: true, opacity: p.side === 'r' ? 0.4 : 0.5, depthWrite: false }));
         pool.rotation.x = -Math.PI / 2; pool.position.y = 0.015; orient.add(pool);
       } else {
         const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.08, 40), M(p.side === 'r' ? '#D9445C' : '#34457E', { roughness: 0.4 }));

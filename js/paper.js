@@ -14,9 +14,20 @@
 
   const tex = { r: {}, b: {} }, size = { r: {}, b: {} };
   const load = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+  /* the flower pictures are pale pink on a pale meadow and blur into it, so every card gets a thin colored edge
+   * (like a sticker cut-out) and the flower side a little more saturation and contrast */
+  const EDGE = { r: '#B5485F', b: '#262B58' }, LIFT = { r: 'saturate(1.18) contrast(1.08)', b: 'none' }, PAD = 4;
+  function prepare(img, side) {
+    const cv = document.createElement('canvas'); cv.width = img.width + PAD * 2; cv.height = img.height + PAD * 2;
+    const g = cv.getContext('2d');
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; g.drawImage(img, PAD + Math.cos(a) * 2.5, PAD + Math.sin(a) * 2.5); }
+    g.globalCompositeOperation = 'source-in'; g.fillStyle = EDGE[side]; g.fillRect(0, 0, cv.width, cv.height);
+    g.globalCompositeOperation = 'source-over'; g.filter = LIFT[side]; g.drawImage(img, PAD, PAD);
+    return cv;
+  }
   const ready = Promise.all(['r', 'b'].flatMap(s => TYPES.map(async t => {
-    const img = await load(`assets/paper/${FILE[s]}-${t}.png`);
-    const tx = new THREE.Texture(img); tx.needsUpdate = true; tex[s][t] = tx; size[s][t] = img.width / img.height;
+    const cv = prepare(await load(`assets/paper/${FILE[s]}-${t}.png`), s);
+    tex[s][t] = new THREE.CanvasTexture(cv); size[s][t] = cv.width / cv.height;
   }))).then(() => true, () => false);
 
   let blobM = null;
