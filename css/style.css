@@ -28,7 +28,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 .stage { position: relative; flex: 1; min-height: 0; }
 #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 22px; color: var(--muted); }
-.loading[hidden] { display: none; }
+[hidden] { display: none !important; }  /* class display rules (.loading, .panel) would otherwise beat the hidden attribute */
 
 /* bottom dock: the everyday buttons stay; everything else folds into a panel that floats over the board */
 .dock { position: relative; background: var(--panel); border-top: 1px solid var(--line); padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
