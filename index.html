@@ -84,7 +84,15 @@
     </div>
     <button class="resume" id="resume" hidden>繼續上一局</button>
     <button class="primary go" id="go">開始下棋</button>
-    <button class="book-link" id="coverBook">看看角色圖鑑</button>
+    <div class="cover-links"><button class="book-link" id="coverBook">看看角色圖鑑</button><button class="book-link" id="coverStories">翻開故事書</button></div>
+  </div>
+</div>
+
+<!-- the story of a game, and the book of past stories -->
+<div class="story" id="storyPage" hidden>
+  <div class="story-card">
+    <div class="book-head"><h2 id="storyTitle">花月故事</h2><button class="book-close" id="storyClose" aria-label="關閉故事">✕</button></div>
+    <div class="story-body" id="storyBody"></div>
   </div>
 </div>
 
@@ -94,7 +102,7 @@
     <img id="endFace" alt="">
     <h2 id="endTitle"></h2>
     <p id="endStats"></p>
-    <div class="row"><button class="primary" id="endAgain">再玩一次</button><button id="endCover">回到封面</button></div>
+    <div class="row"><button class="primary" id="endAgain">再玩一次</button><button id="endStory">看今天的故事</button><button id="endCover">回到封面</button></div>
   </div>
 </div>
 

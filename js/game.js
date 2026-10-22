@@ -133,6 +133,7 @@
       const v = vis[p.id];
       v.outer.visible = true; v.outer.position.set(wx(f), 0, wz(r)); v.outer.scale.setScalar(1);
       v.fig.position.set(0, 0, 0); v.fig.rotation.set(0, 0, 0); v.tilt.rotation.set(LEAN, 0, 0);
+      if (paper) { XQPaper.dissolve(v.fig, 0); v.halo.scale.setScalar(1); v.stem.scale.setScalar(1); }
     }
   }
 
@@ -332,12 +333,30 @@
   /* who can take whom right now: every enemy piece's moves (pins ignored: a pinned attacker still scares a child's piece) */
   function updateHelp() {
     threats = {};
-    const mine = turn, ok = helper && !over && board && (mode !== 'ai' || turn === humanSide);
+    const mine = turn, ok = !over && board;
     if (ok) for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
       const p = board[r][f]; if (!p || p.side === mine) continue;
       XQRules.pseudo(board, f, r).forEach(([x, y]) => { const q = board[y][x]; if (q && q.side === mine && q.t !== 'K' && !threats[q.id]) threats[q.id] = p; });
     }
-    Object.entries(vis).forEach(([id, v]) => { v.worry.visible = !!threats[id] && v.outer.visible; });
+    const show = helper && (mode !== 'ai' || turn === humanSide);
+    Object.entries(vis).forEach(([id, v]) => { v.worry.visible = show && !!threats[id] && v.outer.visible; });
+    updateMoods();
+  }
+  /* faces: worried when aimed at or when her queen is in check, delighted for a while after a capture and when her side wins;
+   * a pawn over the river wears her grown-up picture. Only pictures that exist are used (js/paper.js). */
+  const happyUntil = {};
+  let winner = null;
+  function updateMoods() {
+    if (!paper || !board) return;
+    const now = performance.now(), checked = !over && XQRules.inCheck(board, turn) ? XQRules.findK(board, turn) : null;
+    for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
+      const p = board[r][f]; if (!p) continue;
+      let mood = null;
+      if (over) mood = winner === p.side ? 'happy' : winner ? 'worry' : null;
+      else if (happyUntil[p.id] > now) mood = 'happy';
+      else if (threats[p.id] || (checked && checked[0] === f && checked[1] === r)) mood = 'worry';
+      XQPaper.setLook(vis[p.id].fig, mood, p.t === 'P' && XQRules.crossed(p, r));
+    }
   }
   function updateTurn() {
     updateHelp();
@@ -431,9 +450,10 @@
     lock(true);
     const { f, r, p } = selected; const victim = board[ty][tx];
     Object.values(vis).forEach(v => { v.worry.visible = false; });
-    history.push({ board: board.map(row => row.slice()), turn, captured: { r: captured.r.slice(), b: captured.b.slice() }, last: lastMove });
+    history.push({ board: board.map(row => row.slice()), turn, captured: { r: captured.r.slice(), b: captured.b.slice() }, last: lastMove, storyLen: story.length });
     board[ty][tx] = p; board[r][f] = null;
     lastMove = { side: p.side, from: [f, r], to: [tx, ty] }; showLast();
+    tellMove(p, victim, r, ty);
     clearMarkers(); selected = null; legalNow = [];
     const o = vis[p.id].outer;
     let usedCam = false;
@@ -449,7 +469,9 @@
       const vv = vis[victim.id];
       burst(new THREE.Vector3(ex, 0.6, ez), p.side === 'r' ? PETALS : STARS, 26, true);
       sfx('capture', p.side);
-      tw(320, t => vv.outer.scale.setScalar(1 - t)).then(() => { vv.outer.visible = false; });
+      happyUntil[p.id] = performance.now() + 2600;
+      if (paper) tw(D(800), t => { XQPaper.dissolve(vv.fig, t); vv.halo.scale.setScalar(1 - t); vv.stem.scale.setScalar(1 - t); }).then(() => { vv.outer.visible = false; });
+      else tw(320, t => vv.outer.scale.setScalar(1 - t)).then(() => { vv.outer.visible = false; });
     };
     await tw(D(dur), t => {
       const e = es(t);
@@ -485,7 +507,7 @@
       }
     } else if (XQRules.inCheck(board, turn)) {
       updateCheck();
-      sfx('check'); speak(turn, kingName(turn), `${kingName(turn)}被將軍了！快把她移開、擋住，或吃掉威脅她的棋子！`);
+      tellCheck(turn); sfx('check'); speak(turn, kingName(turn), `${kingName(turn)}被將軍了！快把她移開、擋住，或吃掉威脅她的棋子！`);
       if (cine()) {
         usedCam = true;
         const k = XQRules.findK(board, turn); await closeUp(k[0], k[1], turn);
@@ -503,10 +525,88 @@
     if (autoTurn && mode === 'same' && !over && viewSide !== turn) { viewSide = turn; flipped = true; }
     if (usedCam || flipped) await goHome(flipped ? 2400 : 1600);
     lock(false);
-    if (over) { showEnd(drawWhy ? null : turn === 'r' ? 'b' : 'r', drawWhy); return; }
+    if (victim) { happyUntil[p.id] = performance.now() + 2600; updateMoods(); }   /* still pleased when the camera is back on the board */
+    if (over) { winner = drawWhy ? null : turn === 'r' ? 'b' : 'r'; updateMoods(); showEnd(winner, drawWhy); return; }
     saveGame();
     if (mode !== 'ai' || turn === humanSide) showBanner(turn);
     maybeAI();
+  }
+
+  /* ---------- opening like a pop-up book: the land's cutouts first, then the pieces row by row from each side ---------- */
+  async function popUp() {
+    if (!paper || reduceMotion) return;
+    Object.values(vis).forEach(v => { v.fig.userData.pop = 0; });
+    if (terrain) terrain.pop(0);
+    sfx('move');
+    await tw(1700, t => {
+      if (terrain) terrain.pop(t);
+      Object.values(vis).forEach(v => {
+        const z = Math.abs(v.outer.position.z), delay = (5 - z) / 5 * 0.45 + Math.abs(v.outer.position.x) * 0.012;   /* the back rows rise first */
+        v.fig.userData.pop = Math.min(1, Math.max(0, (t - delay) / 0.45));
+      });
+    });
+  }
+
+  /* ---------- the story of this game, told as it happens ----------
+   * A few lines per game: how it began, the first pawn over the river, captures, checks, how it ended.
+   * Kept with the saved game, and the finished story goes to the story book (the last 30 games). */
+  let story = [];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const who = s => names[s] ? `${names[s]}的${KINGDOM[s]}` : KINGDOM[s];
+  function tell(side, t, text) { story.push({ side, t, text }); }
+  function tellStart() {
+    story = [];
+    const [sd, text] = pick([   /* the picture beside the line is whoever the line is about */
+      ['b', `在一個櫻花盛開的早晨，${who('b')}的月光公主寄來一封星星信：「我們來比一場吧！」`],
+      ['r', `楚河邊的風輕輕吹著，${who('r')}的櫻花公主帶著大家，和${who('b')}隔河相望。`],
+      ['b', `月亮還掛在天邊，太陽已經升起，${who('r')}和${who('b')}的冒險開始了！`]]);
+    tell(sd, 'K', text);
+  }
+  function tellMove(p, victim, fromRank, toRank) {
+    const crossedNow = p.t === 'P' && !XQRules.crossed(p, fromRank) && XQRules.crossed(p, toRank);
+    if (crossedNow && !story.some(l => l.cross === p.side)) {
+      story.push({ side: p.side, t: 'P', cross: p.side, text: `${nm(p)}鼓起勇氣，第一個渡過了楚河！` });
+    }
+    if (victim) tell(p.side, p.t, pick([
+      `${nm(p)}把${nm(victim)}送回了休息區。`,
+      `${nm(p)}一個轉身，請${nm(victim)}先回家休息。`,
+      `${nm(victim)}被${nm(p)}追上了，只好先回城堡喝茶。`]) + (victim.t === 'R' ? '少了一位騎士，戰況一下子變了！' : ''));
+  }
+  function tellCheck(side) { tell(other(side), 'K', `${KINGDOM[other(side)]}一路前進，讓${kingName(side)}嚇了一跳——將軍！`); }
+  function tellEnd(win, why) {
+    if (!win) tell('r', 'K', `最後兩國握手言和：${why}兩位公主約好下次再比。`);
+    else tell(win, 'K', `${who(win)}贏得了這一局！${kingName(win)}開心地轉了好幾圈。`);
+  }
+  const STORIES = 'huayue.stories';
+  function storyBook() { try { return JSON.parse(localStorage.getItem(STORIES)) || []; } catch (e) { return []; } }
+  function keepStory(win) {
+    const list = storyBook();
+    list.unshift({ date: new Date().toISOString(), mode, names, win, lines: story });
+    try { localStorage.setItem(STORIES, JSON.stringify(list.slice(0, 30))); } catch (e) { /* not kept */ }
+  }
+  function showStory(st) {
+    const el = $('storyPage'), d = new Date(st.date);
+    $('storyTitle').textContent = `花月故事・${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+    const body = $('storyBody'); body.innerHTML = '';
+    st.lines.forEach(l => {
+      const row = document.createElement('p'); row.className = 'story-line ' + l.side;
+      if (paper) { const im = document.createElement('img'); im.src = `assets/paper/${l.side === 'r' ? 'flower' : 'moon'}-${l.t}.webp`; im.alt = ''; row.appendChild(im); }
+      const tx = document.createElement('span'); tx.textContent = l.text; row.appendChild(tx); body.appendChild(row);
+    });
+    const end = document.createElement('p'); end.className = 'story-end'; end.textContent = '（完）'; body.appendChild(end);
+    el.hidden = false;
+  }
+  function showStoryList() {
+    const list = storyBook(), box = $('storyBody');
+    $('storyTitle').textContent = '故事書'; box.innerHTML = '';
+    if (!list.length) { const e = document.createElement('p'); e.className = 'story-end'; e.textContent = '還沒有故事，下完一局就會寫下第一個故事喔！'; box.appendChild(e); }
+    list.forEach(st => {
+      const d = new Date(st.date), b = document.createElement('button'); b.className = 'story-item ' + (st.win || 'draw');
+      const res = !st.win ? '平手' : (st.names && st.names[st.win] ? st.names[st.win] + '（' + KINGDOM[st.win] + '）' : KINGDOM[st.win]) + '贏了';
+      b.textContent = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}・${res}・${st.lines.length} 段`;
+      b.onclick = () => showStory(st); box.appendChild(b);
+    });
+    $('storyPage').hidden = false;
   }
 
   /* ---------- draws ----------
@@ -547,8 +647,10 @@
     const moves = history.length;
     $('endStats').textContent = (why ? why + ' ' : '') + `${KINGDOM.r}收集了 ${captured.r.length} 個、${KINGDOM.b}收集了 ${captured.b.length} 個，一共走了 ${moves} 步。`;
     e.className = 'endcard ' + (win || 'draw') + ' ' + (win ? facing(win) : ''); e.hidden = false;
+    tellEnd(win, why); keepStory(win); lastStory = storyBook()[0];
     clearGame(); awake(false);
   }
+  let lastStory = null;
 
   /* ---------- input: pick by grid square, not by model, so any model size taps the same ---------- */
   let down = null;
@@ -574,8 +676,10 @@
   $('undo').onclick = async () => {
     if (busy || !history.length) return;
     let h = history.pop();
+    const keepLines = n => { story = story.slice(0, n); };
     while (mode === 'ai' && h.turn !== humanSide && history.length) h = history.pop();   /* back to the child's own move */
-    board = h.board; turn = h.turn; captured = h.captured; over = false; lastMove = h.last; showLast(); $('endcard').hidden = true;
+    board = h.board; turn = h.turn; captured = h.captured; over = false; winner = null; lastMove = h.last; showLast(); $('endcard').hidden = true;
+    if (h.storyLen !== undefined) keepLines(h.storyLen);
     deselect(); sync(); updateTurn(); updateTrays(); updateCheck();
     speak(turn, kingName(turn), `退回一步，${KINGDOM[turn]}再想想看！`);
     if (autoTurn && mode === 'same' && viewSide !== turn) { lock(true); viewSide = turn; await goHome(2400); lock(false); }
@@ -630,6 +734,9 @@
     if (act === 'more') { const pn = $('panel'); pn.dataset.from = st.dataset.side; setPanel(pn.hidden); }
   }));
   $('endAgain').onclick = () => { $('endcard').hidden = true; restart(); };
+  $('endStory').onclick = () => { if (lastStory) showStory(lastStory); };
+  $('coverStories').onclick = showStoryList;
+  $('storyClose').onclick = () => { $('storyPage').hidden = true; };
   $('endCover').onclick = () => { $('endcard').hidden = true; showCover(); };
   $('toCover').onclick = () => { if (!busy) { setPanel(false); showCover(); } };
 
@@ -640,7 +747,7 @@
   function saveGame() {
     if (over || !board) return;
     const g = { v: 1, mode, humanSide, aiLevel, names, turn, board: flat(board), captured: { r: captured.r.map(p => p.id), b: captured.b.map(p => p.id) }, last: lastMove,
-      history: history.map(h => ({ board: flat(h.board), turn: h.turn, captured: { r: h.captured.r.map(p => p.id), b: h.captured.b.map(p => p.id) }, last: h.last })) };
+      history: history.map(h => ({ board: flat(h.board), turn: h.turn, captured: { r: h.captured.r.map(p => p.id), b: h.captured.b.map(p => p.id) }, last: h.last, storyLen: h.storyLen })), story };
     try { localStorage.setItem(GAME, JSON.stringify(g)); } catch (e) { /* not kept; the game goes on */ }
   }
   function clearGame() { try { localStorage.removeItem(GAME); } catch (e) { /* nothing to clear */ } }
@@ -650,7 +757,8 @@
     const unflat = a => Array.from({ length: 10 }, (_, r) => a.slice(r * 9, r * 9 + 9).map(id => id < 0 ? null : P[id]));
     const caps = c => ({ r: c.r.map(id => P[id]), b: c.b.map(id => P[id]) });
     board = unflat(g.board); turn = g.turn; captured = caps(g.captured); lastMove = g.last; over = false; selected = null; legalNow = [];
-    history = g.history.map(h => ({ board: unflat(h.board), turn: h.turn, captured: caps(h.captured), last: h.last }));
+    history = g.history.map(h => ({ board: unflat(h.board), turn: h.turn, captured: caps(h.captured), last: h.last, storyLen: h.storyLen }));
+    story = g.story || []; winner = null;
   }
 
   /* ---------- keep the tablet awake while a game is on (thinking takes a while) ---------- */
@@ -706,7 +814,7 @@
     applyMode(); loadGame(g);
     clearMarkers(); sync(); showLast(); updateTurn(); updateTrays(); updateCheck(); $('endcard').hidden = true;
     speak(turn, kingName(turn), `歡迎回來！接著上一局，輪到${label(turn)}。`);
-    lock(true); viewSide = mode === 'ai' ? humanSide : mode === 'same' ? turn : 'r'; await goHome(1400); lock(false);
+    lock(true); viewSide = mode === 'ai' ? humanSide : mode === 'same' ? turn : 'r'; await Promise.all([goHome(1400), popUp()]); lock(false);
     awake(true); showBanner(turn); maybeAI();
   };
 
@@ -716,11 +824,11 @@
   }
   async function restart() {
     if (busy) return;
-    newState(); /* ids are generated in the same order, so the existing visuals map back 1:1 */
+    newState(); winner = null; tellStart(); /* ids are generated in the same order, so the existing visuals map back 1:1 */
     clearMarkers(); sync(); updateTurn(); updateTrays(); updateCheck(); $('endcard').hidden = true;
     const first = mode === 'ai' && humanSide === 'b' ? '新的一局開始！花之國先走，電腦正在想第一步。' : `新的一局開始！${label('r')}先走，點一下棋子看看它可以走到哪裡。`;
     speak('r', kingName('r'), first);
-    lock(true); viewSide = mode === 'ai' ? humanSide : 'r'; await goHome(1400); lock(false);
+    lock(true); viewSide = mode === 'ai' ? humanSide : 'r'; await Promise.all([goHome(1400), popUp()]); lock(false);
     saveGame(); awake(true);
     showBanner('r'); maybeAI();
   }
@@ -762,6 +870,7 @@
     const pulse = 1 + Math.sin(now / 220) * 0.08; markers.forEach(m => m.scale.setScalar(pulse));
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
     turnGlow.material.opacity = 0.75 + Math.sin(now / 700) * 0.25;
+    if (paper && (now | 0) % 300 < 17) updateMoods();   /* happy faces wear off after a while */
     if (terrain && terrain.root.visible) terrain.update(now / 1000, camera, target);
     if (!camAnim && !f2f()) controls.update();
     if (look) XQLook.manage(scene);   /* new objects (particles, markers, the other board look) get converted before they are drawn */
@@ -806,6 +915,8 @@
     },
     async move(f, r, x, y) { select(f, r, true); await doMove(x, y); },
     select(f, r) { select(f, r); },
+    looks: () => Object.values(vis).filter(v => v.outer.visible && v.fig.userData.look && v.fig.userData.look !== v.fig.userData.t).map(v => v.side + v.fig.userData.look),
+    story: () => story.map(l => l.text),
     threats: () => Object.entries(threats).map(([id, by]) => [Object.values(vis)[id] ? id : id, nm(by)]),
     state: () => ({ turn, over, mode, history: history.length, board: board.map(row => row.map(p => p ? p.side + p.t : '')) })
   };

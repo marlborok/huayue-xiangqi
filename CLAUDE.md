@@ -21,6 +21,8 @@
 - 小幫手（`game.js` 的 `updateHelp`）：輪到的一方被對方瞄準的棋子頭旁冒出橘色「!」，點她會說「小心！○○正在瞄準我！」；帥將不標（將軍另有提示）；對電腦時只標玩家自己的；設定可關，記在 localStorage
 - 存檔與和棋（2026-10-23）：每走一步存進 localStorage `huayue.game`（棋子以 id 存，還原時從新棋局重建），封面出現「繼續上一局」；分出勝負或和棋即清除。和棋（家庭簡化版）：同局面第三次、60 回合沒人被吃、雙方都沒有車馬炮兵；電腦會避免走回出現過的局面（`XQAI.key`）。下棋中用 Wake Lock 讓螢幕不休眠
 - App 化與離線（`manifest.webmanifest`、`sw.js`、`assets/icons/`）：可加到主畫面、全螢幕。程式碼走網路優先（更新會自動拿到），圖片／three.js／字型走快取優先；**新增圖片時要把路徑加進 `sw.js` 的 `ASSETS`**。字型檔是用到哪些字才抓哪些，第一次離線前沒用過的字會暫時換成系統字型
+- 繪本演出（2026-10-23）：開局像立體書，造景與角色從紙面立起（`popUp`、`terrain.pop`）；被吃的角色像水彩遇水溶開（`XQPaper.dissolve`，shader 注入）。表情與成長：`XQPaper.setLook` 依情況換圖（被瞄準／被將軍＝worry、剛吃子與獲勝＝happy、兵卒過河＝P-up），圖檔列在 `assets/paper/variants.json`，沒列的就用原圖；提示詞在 `docs/表情與成長繪圖提示詞.md`
+- 故事書：每局自動寫故事（開場、第一個過河的兵、吃子、將軍、結局），隨存檔保存；結束卡「看今天的故事」，封面「翻開故事書」看最近 30 局（localStorage `huayue.stories`）
 - `js/figures.js`：幾何角色 `figure(side, t)`（插畫載入失敗時的備用）與徽章貼圖 `badgeTexture()`
 - `js/paper.js`：紙偶角色。`assets/paper/{flower|moon}-{K,A,B,R,N,C,P}.webp` 的水彩插畫立成卡片，每格轉向鏡頭並往後仰（`LEAN_BACK`），徽章跟著頭頂走
 - `docs/角色繪圖提示詞.md`：14 個角色的繪圖提示詞；原圖在 `花之國/`、`月之國/`（不進版控），去背後放 `assets/paper/`

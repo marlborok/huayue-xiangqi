@@ -166,9 +166,13 @@
     }
     /* face the camera, and lean back part of the way toward a high camera (base stays put) so they are not seen squashed from above;
      * the wide low hills lean less (o.lean), otherwise they tip over into floating shapes at the top of the view */
+    /* pop-up book: popAll goes 0 -> 1 and each cutout folds up from the page in turn, the nearest to the board first */
+    let popAll = 1;
     const face = camera => cards.forEach(c => {
       const dx = camera.position.x - c.position.x, dz = camera.position.z - c.position.z, dy = camera.position.y - c.position.y;
-      c.rotation.set(-Math.max(0, Math.atan2(dy, Math.hypot(dx, dz))) * c.userData.lean, Math.atan2(dx, dz), 0, 'YXZ');
+      const d = Math.hypot(c.position.x, c.position.z), pp = Math.min(1, Math.max(0, popAll * 1.8 - d / 22)), up = pp * pp * (3 - 2 * pp);
+      const lean = -Math.max(0, Math.atan2(dy, Math.hypot(dx, dz))) * c.userData.lean;
+      c.rotation.set(-Math.PI / 2 + (lean + Math.PI / 2) * up, Math.atan2(dx, dz), 0, 'YXZ');
     });
 
     /* sky dome: warm day over the flower side, dusk over the moon side, sunset where they meet */
@@ -326,6 +330,7 @@
     return {
       root,
       fog: new THREE.Fog('#EFE2E4', 30, 80),
+      pop(v) { popAll = v; },
       update(t, camera, target) { anim.forEach(fn => fn(t)); if (camera) { face(camera); fadeLandmarks(camera, target); } }
     };
   }

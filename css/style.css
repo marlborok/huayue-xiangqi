@@ -195,12 +195,27 @@ body.f2f.land .seat.b { left: 0; transform: translate(calc(58px - 50%), -50%) ro
   .cover-card > .modes label { padding: 6px 10px; }
   .cover-card > .who-plays { grid-column: 2; }
   .cover-card > .go { grid-column: 2; min-height: 44px; }
-  .cover-card > .book-link { grid-column: 1; grid-row: 4 / span 2; }
+  .cover-card > .cover-links { grid-column: 1; grid-row: 4 / span 2; flex-direction: column; align-items: center; }
   .cover { padding: 8px; }
   .modes legend { margin-bottom: 2px; }
   .modes span { font-size: 0; } .modes b { font-size: 16px; }   /* just the mode names: the short screen has no room for the notes */
   .who-plays input, .who-plays select { min-height: 36px; }
 }
+
+/* ---------- 故事書 ---------- */
+.story { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 12px; box-sizing: border-box; background: rgba(243, 232, 214, .78); backdrop-filter: blur(3px); }
+.story-card { width: min(620px, 100%); max-height: 100%; overflow: auto; box-sizing: border-box; padding: 16px 20px 22px; display: flex; flex-direction: column; gap: 10px;
+  background-color: #FFFBF2; background-image: var(--grain); border: 2px solid var(--edge); border-radius: var(--cut); box-shadow: 0 10px 30px rgba(74, 53, 48, .25); }
+.story-card h2 { margin: 0; font-family: var(--display); font-size: 26px; }
+.story-body { display: flex; flex-direction: column; gap: 10px; }
+.story-line { display: flex; align-items: center; gap: 12px; margin: 0; font-family: var(--display); font-size: 18px; line-height: 1.7; }
+.story-line img { flex: none; width: 52px; height: 52px; border-radius: 50%; object-fit: cover; object-position: 50% 0; border: 2px solid var(--flower-ink); background: #FFFAF0; }
+.story-line.b img { border-color: var(--moon); }
+.story-line:nth-child(even) { flex-direction: row-reverse; text-align: right; }   /* like a picture book, the pictures take turns on each side */
+.story-end { margin: 6px 0 0; text-align: center; font-family: var(--display); color: var(--muted); }
+.story-item { justify-content: flex-start; text-align: left; font-size: 16px; }
+.story-item.r { border-left: 6px solid var(--flower-solid); } .story-item.b { border-left: 6px solid var(--moon); }
+.cover-links { display: flex; justify-content: center; gap: 4px 16px; flex-wrap: wrap; }
 
 /* ---------- 角色圖鑑 ---------- */
 .book { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; padding: 12px; box-sizing: border-box; background: rgba(243, 232, 214, .78); backdrop-filter: blur(3px); }
