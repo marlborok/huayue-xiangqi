@@ -116,13 +116,73 @@
   }
 
   /* ---------- markers ---------- */
-  const dotGeo = new THREE.CircleGeometry(0.16, 32), ringGeo = new THREE.RingGeometry(0.46, 0.56, 48);
-  const dotMat = new THREE.MeshBasicMaterial({ color: '#F0A92E', transparent: true, opacity: 0.95 });
-  const capMat = new THREE.MeshBasicMaterial({ color: '#FF3D63', transparent: true, opacity: 0.95, side: THREE.DoubleSide });
-  const selMat = new THREE.MeshBasicMaterial({ color: '#F0A92E', transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+  /* drawn on small canvases with a dark outline, so they stay readable on the pale watercolor ground */
+  function markTex(draw) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'); draw(g);
+    const t = new THREE.CanvasTexture(cv); t.anisotropy = aniso; if (look) t.encoding = THREE.sRGBEncoding; return t;
+  }
+  const ring = (g, color, r, w) => {
+    g.lineWidth = w + 8; g.strokeStyle = 'rgba(60,35,30,0.75)'; g.beginPath(); g.arc(64, 64, r, 0, 7); g.stroke();
+    g.lineWidth = w; g.strokeStyle = color; g.beginPath(); g.arc(64, 64, r, 0, 7); g.stroke();
+    g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,0.8)'; g.beginPath(); g.arc(64, 64, r - w / 2 + 1, 0, 7); g.stroke();
+  };
+  const markMat = map => new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  const quad = s => new THREE.PlaneGeometry(s, s);
+  /* where the selected piece can go: a bright gold drop with a dark rim and a white glint */
+  const dotGeo = quad(0.5), dotMat = markMat(markTex(g => {
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill();
+    g.fillStyle = '#6E4210'; g.beginPath(); g.arc(64, 64, 40, 0, 7); g.fill();
+    g.fillStyle = '#FFC93C'; g.beginPath(); g.arc(64, 64, 33, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(54, 54, 10, 0, 7); g.fill();
+  }));
+  const ringGeo = quad(1.2);
+  const capMat = markMat(markTex(g => ring(g, '#E8264F', 54, 10)));   /* a piece that can be captured */
+  const selMat = markMat(markTex(g => ring(g, '#FFC93C', 54, 9)));    /* the selected piece */
   let markers = [];
   function clearMarkers() { markers.forEach(m => scene.remove(m)); markers = []; }
-  function addMarker(geo, mat, f, r, y) { const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.position.set(wx(f), y, wz(r)); scene.add(m); markers.push(m); }
+  function addMarker(geo, mat, f, r, y) { const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.position.set(wx(f), y, wz(r)); m.renderOrder = 3; scene.add(m); markers.push(m); }
+
+  /* the last move stays marked until the next one: a dashed ring where the piece left, a soft glow where it landed,
+   * in the mover's colour, so the player whose turn it is can see what just happened */
+  const SIDE_INK = { r: '#D9445C', b: '#4B5BA8' };
+  const lastTex = {};
+  ['r', 'b'].forEach(s => {
+    lastTex[s] = {
+      from: markTex(g => { g.setLineDash([14, 10]); g.lineCap = 'round'; ring(g, SIDE_INK[s], 44, 7); }),
+      to: markTex(g => {
+        const gr = g.createRadialGradient(64, 64, 10, 64, 64, 62);
+        gr.addColorStop(0, SIDE_INK[s] + '55'); gr.addColorStop(0.75, SIDE_INK[s] + '33'); gr.addColorStop(1, SIDE_INK[s] + '00');
+        g.fillStyle = gr; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
+        g.lineWidth = 6; g.strokeStyle = SIDE_INK[s]; g.globalAlpha = 0.85; g.beginPath(); g.arc(64, 64, 50, 0, 7); g.stroke(); g.globalAlpha = 1;
+      })
+    };
+  });
+  const lastFrom = new THREE.Mesh(quad(1.0), markMat(null)), lastTo = new THREE.Mesh(quad(1.2), markMat(null));
+  [lastFrom, lastTo].forEach(m => { m.rotation.x = -Math.PI / 2; m.position.y = 0.025; m.renderOrder = 2; m.visible = false; scene.add(m); });
+  let lastMove = null;   /* { side, from: [f, r], to: [f, r] } */
+  function showLast() {
+    const on = !!lastMove; lastFrom.visible = lastTo.visible = on; if (!on) return;
+    const T = lastTex[lastMove.side];
+    lastFrom.material.map = T.from; lastTo.material.map = T.to; lastFrom.material.needsUpdate = lastTo.material.needsUpdate = true;
+    lastFrom.position.set(wx(lastMove.from[0]), 0.025, wz(lastMove.from[1]));
+    lastTo.position.set(wx(lastMove.to[0]), 0.025, wz(lastMove.to[1]));
+  }
+
+  /* whose turn: the active kingdom's half of the board glows softly along its edges */
+  const turnTex = {};
+  ['r', 'b'].forEach(s => {
+    const cv = document.createElement('canvas'); cv.width = 460; cv.height = 240; const g = cv.getContext('2d');
+    const c = s === 'r' ? '255,110,150' : '255,205,90';
+    for (let i = 0; i < 22; i++) { g.strokeStyle = `rgba(${c},${0.8 * (1 - i / 22) ** 2})`; g.lineWidth = 2; g.strokeRect(1 + i, 1 + i, 458 - 2 * i, 238 - 2 * i); }
+    turnTex[s] = new THREE.CanvasTexture(cv); if (look) turnTex[s].encoding = THREE.sRGBEncoding;
+  });
+  const turnGlow = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 4.9), markMat(turnTex.r));
+  turnGlow.rotation.x = -Math.PI / 2; turnGlow.position.y = 0.03; turnGlow.renderOrder = 1; scene.add(turnGlow);
+  function showTurnGlow() {
+    const s = turn === 'r' ? 1 : -1;
+    turnGlow.material.map = turnTex[turn]; turnGlow.material.needsUpdate = true;
+    turnGlow.position.z = s * 2.76; turnGlow.visible = !over;
+  }
   const checkRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.64, 48), new THREE.MeshBasicMaterial({ color: '#FF3D63', transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
   checkRing.rotation.x = -Math.PI / 2; checkRing.visible = false; scene.add(checkRing);
 
@@ -203,6 +263,7 @@
   function updateTurn() {
     $('turn').classList.toggle('moon', turn === 'b');
     $('turnText').textContent = turn === 'r' ? '花之國（紅方）的回合' : '月之國（黑方）的回合';
+    showTurnGlow();
   }
   function updateTrays() {
     const fill = (el, label, list) => {
@@ -251,8 +312,9 @@
   async function doMove(tx, ty) {
     lock(true);
     const { f, r, p } = selected; const victim = board[ty][tx];
-    history.push({ board: board.map(row => row.slice()), turn, captured: { r: captured.r.slice(), b: captured.b.slice() } });
+    history.push({ board: board.map(row => row.slice()), turn, captured: { r: captured.r.slice(), b: captured.b.slice() }, last: lastMove });
     board[ty][tx] = p; board[r][f] = null;
+    lastMove = { side: p.side, from: [f, r], to: [tx, ty] }; showLast();
     clearMarkers(); selected = null; legalNow = [];
     const o = vis[p.id].outer;
     let usedCam = false;
@@ -286,7 +348,7 @@
     turn = turn === 'r' ? 'b' : 'r'; updateTurn();
 
     if (!XQRules.anyLegal(board, turn)) {
-      over = true; const win = turn === 'r' ? 'b' : 'r';
+      over = true; showTurnGlow(); const win = turn === 'r' ? 'b' : 'r';
       updateCheck();
       speak(win, kingName(win), `${KINGDOM[win]}贏了！${KINGDOM[turn]}的${kingName(turn)}已經沒有路可以走了。`, true);
       if (cinema) {
@@ -342,7 +404,7 @@
   /* ---------- buttons ---------- */
   $('undo').onclick = async () => {
     if (busy || !history.length) return;
-    const h = history.pop(); board = h.board; turn = h.turn; captured = h.captured; over = false;
+    const h = history.pop(); board = h.board; turn = h.turn; captured = h.captured; over = false; lastMove = h.last; showLast();
     deselect(); sync(); updateTurn(); updateTrays(); updateCheck();
     speak(turn, kingName(turn), `退回一步，${KINGDOM[turn]}再想想看！`);
     if (autoTurn && viewSide !== turn) { lock(true); viewSide = turn; await goHome(2400); lock(false); }
@@ -380,7 +442,7 @@
 
   function newState() {
     const g = XQRules.newGame(); board = g.board; turn = g.turn;
-    history = []; selected = null; legalNow = []; over = false; captured = { r: [], b: [] };
+    history = []; selected = null; legalNow = []; over = false; captured = { r: [], b: [] }; lastMove = null; showLast();
   }
   async function restart() {
     if (busy) return;
@@ -422,6 +484,7 @@
     });
     const pulse = 1 + Math.sin(now / 220) * 0.08; markers.forEach(m => m.scale.setScalar(pulse));
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
+    turnGlow.material.opacity = 0.75 + Math.sin(now / 700) * 0.25;
     if (terrain && terrain.root.visible) terrain.update(now / 1000, camera, target);
     if (!camAnim) controls.update();
     if (look) XQLook.manage(scene);   /* new objects (particles, markers, the other board look) get converted before they are drawn */

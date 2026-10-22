@@ -2,7 +2,7 @@
    Single warm look on purpose (a toy on the table), so no dark theme. */
 :root {
   --bg: #FBEFEA; --panel: #FFFFFF; --ink: #3B2A2F; --muted: #7A6066; --line: #EAD3CC;
-  --flower: #D9445C; --flower-soft: #FCE3E7; --moon: #34457E; --moon-soft: #E7E9F7; --gold: #C98A1B;
+  --flower: #D9445C; --flower-ink: #B02A45; --flower-solid: #C8304C; --flower-soft: #FCE3E7; --moon: #34457E; --moon-soft: #E7E9F7; --gold: #C98A1B;
   --display: "LXGW WenKai TC", "Kaiti TC", "STKaiti", "KaiTi", serif;
   --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   color-scheme: light;
@@ -14,15 +14,16 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding-block: 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .brand { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: 2px; margin: 0; }
 .brand span { color: var(--flower); } .brand b { color: var(--moon); font-weight: 700; }
-.turn { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 8px 14px; border-radius: 999px; background: var(--flower-soft); color: var(--flower); transition: background .3s, color .3s; }
-.turn.moon { background: var(--moon-soft); color: var(--moon); }
+.turn { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; padding: 8px 16px; border-radius: 999px; background: var(--flower-solid); color: #FFFFFF; box-shadow: 0 2px 8px rgba(200, 48, 76, .35); transition: background .3s, box-shadow .3s; }
+/* solid colour with white text (5.3:1 flower, 9.1:1 moon): the turn has to be readable at a glance from across the table */
+.turn.moon { background: var(--moon); box-shadow: 0 2px 8px rgba(52, 69, 126, .35); }
 .turn i { width: 12px; height: 12px; border-radius: 50%; background: currentColor; display: block; }
 
 /* message strip: sits between the top bar and the board, so it never covers the game */
 .msg { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-block: 8px; background: var(--flower-soft); border-bottom: 1px solid var(--line); min-height: 44px; box-sizing: border-box; transition: background .3s; }
 .msg.moon { background: var(--moon-soft); }
 .msg .line { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 15px; line-height: 1.5; }
-.msg .who { font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--flower); margin-right: 8px; }
+.msg .who { font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--flower-ink); margin-right: 8px; }
 .msg.moon .who { color: var(--moon); }
 
 .stage { position: relative; flex: 1; min-height: 0; }
