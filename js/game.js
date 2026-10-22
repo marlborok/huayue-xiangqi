@@ -18,6 +18,9 @@
   /* how the game is played (chosen on the cover): 'ai' one child against the computer, 'same' two players sharing one view,
    * 'f2f' two players face to face with the tablet flat between them */
   let mode = 'same', humanSide = 'r', aiLevel = 1, names = { r: '', b: '' };
+  /* 小幫手: for a learning player, mark the pieces of the side to move that the other side could take right now */
+  let helper = true; try { helper = localStorage.getItem('huayue.helper') !== 'off'; } catch (e) { /* default on */ }
+  let threats = {};   /* piece id -> the enemy piece aiming at it */
   const f2f = () => mode === 'f2f';
   const landscape = () => innerWidth > innerHeight;
   const cine = () => cinema && !f2f();                 /* close-ups swing the camera: not when the board must stay put between two players */
@@ -85,6 +88,14 @@
 
   /* ---------- piece visuals ---------- */
   const LEAN = 0.12;            /* slight forward lean: everyone advances toward the enemy */
+  /* the helper's mark: an orange drop with a white "!", drawn round so it reads the same from either side of the table */
+  const worryTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d');
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill();
+    g.fillStyle = '#E8762B'; g.beginPath(); g.arc(64, 64, 52, 0, 7); g.fill();
+    g.fillStyle = '#FFFFFF'; g.fillRect(56, 26, 16, 50); g.beginPath(); g.arc(64, 94, 9, 0, 7); g.fill();
+    const t = new THREE.CanvasTexture(cv); if (look) t.encoding = THREE.sRGBEncoding; return t;
+  })();
   const vis = {}; const badgeCache = {};
   function buildVisuals() {
     for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
@@ -110,7 +121,9 @@
       const sm = new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#D9445C' : '#34457E', transparent: true });
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), sm); stem.position.y = badgeY(p.t) - 0.1; hold.add(stem);
       scene.add(outer);
-      vis[p.id] = { outer, tilt, fig, halo, stem, mats: [hm, sm], side: p.side };
+      const worry = new THREE.Sprite(new THREE.SpriteMaterial({ map: worryTex, depthTest: false, transparent: true }));
+      worry.scale.setScalar(0.42); worry.renderOrder = 6; worry.visible = false; scene.add(worry);
+      vis[p.id] = { outer, tilt, fig, halo, stem, mats: [hm, sm], side: p.side, worry };
     }
   }
   function sync() {
@@ -316,7 +329,18 @@
     av.hidden = !(paper && t);
     if (!av.hidden) av.src = `assets/paper/${side === 'r' ? 'flower' : 'moon'}-${t}.webp`;
   }
+  /* who can take whom right now: every enemy piece's moves (pins ignored: a pinned attacker still scares a child's piece) */
+  function updateHelp() {
+    threats = {};
+    const mine = turn, ok = helper && !over && board && (mode !== 'ai' || turn === humanSide);
+    if (ok) for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
+      const p = board[r][f]; if (!p || p.side === mine) continue;
+      XQRules.pseudo(board, f, r).forEach(([x, y]) => { const q = board[y][x]; if (q && q.side === mine && q.t !== 'K' && !threats[q.id]) threats[q.id] = p; });
+    }
+    Object.entries(vis).forEach(([id, v]) => { v.worry.visible = !!threats[id] && v.outer.visible; });
+  }
   function updateTurn() {
+    updateHelp();
     $('turn').classList.toggle('moon', turn === 'b');
     $('turnText').textContent = mode === 'ai' ? (turn === humanSide ? `輪到你了（${KINGDOM[turn]}）` : `電腦思考中…（${KINGDOM[turn]}）`) : `${label(turn)}的回合`;
     showTurnGlow();
@@ -389,6 +413,7 @@
         ? '我已經走到最底了！小兵不能後退，現在只能往左或往右走一格。'
         : '我已經過河了，現在可以往前或往左右走一格！記得我不能後退喔。';
     }
+    if (threats[p.id] && helper) say = `小心！${nm(threats[p.id])}正在瞄準我！` + say;
     if (!legalNow.length) {
       /* tell a pinned piece apart from a blocked one: it has moves on paper, but every one would expose its own king */
       const pinned = XQRules.pseudo(board, f, r).length > 0;
@@ -405,6 +430,7 @@
   async function doMove(tx, ty) {
     lock(true);
     const { f, r, p } = selected; const victim = board[ty][tx];
+    Object.values(vis).forEach(v => { v.worry.visible = false; });
     history.push({ board: board.map(row => row.slice()), turn, captured: { r: captured.r.slice(), b: captured.b.slice() }, last: lastMove });
     board[ty][tx] = p; board[r][f] = null;
     lastMove = { side: p.side, from: [f, r], to: [tx, ty] }; showLast();
@@ -553,6 +579,11 @@
   $('flip').onclick = async () => { if (busy) return; viewSide = viewSide === 'r' ? 'b' : 'r'; lock(true); await goHome(2400); lock(false); };
   $('auto').onclick = () => { autoTurn = !autoTurn; $('auto').setAttribute('aria-pressed', autoTurn); };
   $('cinema').onclick = () => { cinema = !cinema; $('cinema').setAttribute('aria-pressed', cinema); };
+  $('helper').setAttribute('aria-pressed', helper);
+  $('helper').onclick = () => {
+    helper = !helper; $('helper').setAttribute('aria-pressed', helper); updateHelp();
+    try { localStorage.setItem('huayue.helper', helper ? 'on' : 'off'); } catch (e) { /* not remembered, still applies */ }
+  };
   if (window.XQSound) {
     $('sound').setAttribute('aria-pressed', XQSound.enabled);
     $('sound').onclick = () => { XQSound.setEnabled(!XQSound.enabled); $('sound').setAttribute('aria-pressed', XQSound.enabled); };
@@ -650,6 +681,7 @@
       tmp2.copy(camera.position); v.halo.parent.worldToLocal(tmp2); tmp2.sub(v.halo.position);
       const pitch = Math.max(-1.35, Math.min(1.35, Math.atan2(tmp2.z, tmp2.y)));
       v.halo.rotation.x = -Math.PI / 2 + pitch;
+      if (v.worry.visible) { v.worry.position.copy(tmp); v.worry.position.y += 0.05 + Math.abs(Math.sin(now / 260)) * 0.08; v.worry.position.x += 0.32; }
       const d = camera.position.distanceTo(tmp), k = Math.min(1, Math.max(0, (d - 3.6) / 2.6)), o = k * k * (3 - 2 * k);
       v.mats.forEach(m => { m.opacity = o; }); v.halo.visible = o > 0.01;
     });
@@ -694,6 +726,8 @@
       deselect(); sync(); updateTurn(); updateTrays(); updateCheck(); $('endcard').hidden = true;
     },
     async move(f, r, x, y) { select(f, r, true); await doMove(x, y); },
+    select(f, r) { select(f, r); },
+    threats: () => Object.entries(threats).map(([id, by]) => [Object.values(vis)[id] ? id : id, nm(by)]),
     state: () => ({ turn, over, mode, history: history.length, board: board.map(row => row.map(p => p ? p.side + p.t : '')) })
   };
   start();

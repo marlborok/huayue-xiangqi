@@ -184,6 +184,42 @@ body.f2f.land .seat.b { left: 0; transform: translate(calc(58px - 50%), -50%) ro
 .endcard.rot-l .end-inner { transform: rotate(90deg); }
 @media (max-height: 640px) { .kings img { height: 80px; } .brand.big { font-size: 32px; } .cover-card { gap: 10px; padding: 14px; } }
 
+/* ---------- 角色圖鑑 ---------- */
+.book { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; padding: 12px; box-sizing: border-box; background: rgba(243, 232, 214, .78); backdrop-filter: blur(3px); }
+.book-card { width: min(720px, 100%); max-height: 100%; overflow: auto; box-sizing: border-box; padding: 16px 18px 20px; display: flex; flex-direction: column; gap: 12px;
+  background-color: var(--paper); background-image: var(--grain); border: 2px solid var(--edge); border-radius: var(--cut); box-shadow: 0 10px 30px rgba(74, 53, 48, .25); }
+.book-head { display: flex; align-items: center; justify-content: space-between; }
+.book-head h2 { margin: 0; font-family: var(--display); font-size: 28px; }
+.book-close { min-width: 44px; padding: 0; font-size: 20px; }
+.book-tabs { display: flex; gap: 8px; }
+.book-tabs button { flex: 1; }
+.book-tabs button[aria-selected="true"][data-side="r"] { background: var(--flower-solid); color: #FFFFFF; border-color: var(--flower-ink); }
+.book-tabs button[aria-selected="true"][data-side="b"] { background: var(--moon); color: #FFFFFF; border-color: var(--moon); }
+.book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.book-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; height: auto; padding: 10px 6px 8px; min-height: 0; }
+.book-item img { height: 120px; max-width: 100%; object-fit: contain; }
+.book-item b { font-size: 16px; }
+.book .stamp { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-family: var(--display); font-weight: 700; font-size: 18px;
+  color: var(--flower-ink); background: #FFF8EC; border: 2px solid currentColor; box-shadow: inset 0 0 0 2px #FFF8EC, inset 0 0 0 3px currentColor; }
+.book.b .stamp { color: var(--moon); }
+.book-item .stamp { position: absolute; top: 6px; left: 6px; }
+.book-back { align-self: flex-start; }
+.book-detail { display: flex; flex-direction: column; gap: 14px; }
+.book-one { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.book-one img { height: 240px; max-width: 45%; object-fit: contain; filter: drop-shadow(0 3px 2px rgba(74, 53, 48, .2)); }
+.book-one > div { flex: 1 1 240px; }
+.book-one h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font-family: var(--display); font-size: 26px; color: var(--flower-ink); }
+.book.b .book-one h3 { color: var(--moon); }
+.book-one .role { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.book-one .intro { margin: 0 0 8px; font-size: 17px; line-height: 1.7; }
+.book-one .how { margin: 0; padding: 8px 12px; font-family: var(--display); font-size: 17px; background: #FFFDF8; border: 2px solid var(--line); border-radius: var(--cut); }
+.book-move { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.book-move h4 { margin: 0; font-family: var(--display); font-size: 18px; }
+.book-move canvas { width: 210px; height: 210px; border: 2px solid var(--line); border-radius: 10px; }
+.book-move .note { margin: 0; color: var(--muted); font-size: 14px; text-align: center; max-width: 320px; }
+.book-link { align-self: center; background: none; border: 0; box-shadow: none; text-decoration: underline; color: var(--muted); font-size: 16px; min-height: 40px; }
+.book-link:hover:not(:disabled) { background: none; color: var(--ink); }
+
 @media (max-width: 480px) {
   .bar { padding-block: 6px; }
   .brand { font-size: 23px; }
