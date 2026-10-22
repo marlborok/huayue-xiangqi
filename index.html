@@ -13,10 +13,11 @@
   <h1 class="brand"><span>花</span><b>月</b>象棋</h1>
   <div class="turn" id="turn" role="status"><i></i><span id="turnText">花之國（紅方）的回合</span></div>
 </header>
-<div class="msg gutter" id="bubble" aria-live="polite">
+<div class="msg gutter" id="bubble">
   <img class="avatar" id="avatar" alt="" src="assets/paper/flower-K.png">
   <p class="line"><span class="who" id="who">櫻花公主</span><span class="say" id="say">花之國先走！點一下棋子，看看它可以走到哪裡。</span></p>
   <button id="again" class="primary" hidden>再玩一次</button>
+  <p class="sr-only" id="sayLive" aria-live="polite"></p>
 </div>
 <main class="stage">
   <canvas id="c" aria-label="3D 象棋棋盤"></canvas>

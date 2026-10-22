@@ -256,9 +256,30 @@
   const PETALS = ['#FF9EB4', '#FFD1DC', '#FFE38A', '#FFFFFF'], STARS = ['#B7A6F0', '#CBBDFF', '#FFFFFF', '#FFE38A'];
 
   /* ---------- UI ---------- */
+  /* the line appears letter by letter like a character talking: every letter is laid out from the start (hidden),
+   * so the bubble never grows and pushes the board while she speaks; a short pause after punctuation; a tap shows it all */
+  const SAY_MS = 36, PAUSE = { '，': 140, '、': 140, '；': 160, '：': 160, '！': 240, '？': 240, '。': 260, '…': 260 };
+  let sayTimer = null;
+  function finishSay() { clearTimeout(sayTimer); sayTimer = null; $('say').querySelectorAll('.h').forEach(s => s.classList.remove('h')); }
+  function typeSay(text) {
+    finishSay();
+    const el = $('say'); el.textContent = '';
+    const spans = Array.from(text, ch => { const s = document.createElement('span'); s.textContent = ch; s.className = 'h'; el.appendChild(s); return s; });
+    if (reduceMotion) { finishSay(); return; }
+    let i = 0;
+    const step = () => {
+      if (i >= spans.length) { sayTimer = null; return; }
+      const s = spans[i++]; s.classList.remove('h');
+      sayTimer = setTimeout(step, SAY_MS + (PAUSE[s.textContent] || 0));
+    };
+    step();
+  }
+  $('bubble').addEventListener('click', e => { if (sayTimer && e.target.id !== 'again') finishSay(); });
+
   function speak(side, who, text, again) {
     $('bubble').classList.toggle('moon', side === 'b');
-    $('who').textContent = who; $('say').textContent = text; $('again').hidden = !again;
+    $('who').textContent = who; typeSay(text); $('again').hidden = !again;
+    $('sayLive').textContent = who + '：' + text;   /* screen readers get the whole line at once, not letter by letter */
     /* the speaker's portrait: the top of her paper-doll picture */
     const t = Object.keys(NAME).find(k => NAME[k].includes(who)), av = $('avatar');
     av.hidden = !(paper && t);
