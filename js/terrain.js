@@ -142,7 +142,7 @@
     const add = (m, x, y, z, shadow) => { m.position.set(x, y, z); if (shadow !== false) { m.castShadow = true; m.receiveShadow = true; } root.add(m); return m; };
     const rand = (a, b) => a + Math.random() * (b - a);
 
-    /* scenery as paper cutouts: the watercolor drawings in assets/paper/scene-*.png standing upright and turning to face the camera.
+    /* scenery as paper cutouts: the watercolor drawings in assets/paper/scene-*.webp standing upright and turning to face the camera.
      * size is { h } (height) or { w } (width); the other side follows the picture. They stay hidden until their picture loads.
      * o.soft: the drawing has a painted glow around it, kept translucent (no hard alpha cut, no depth write). */
     const cards = [], loader = new THREE.TextureLoader(), LEAN_BACK = 0.6;
@@ -153,7 +153,7 @@
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.35 });
       const card = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); card.castShadow = true; card.customDepthMaterial = depth; card.visible = false;
       pivot.add(card);
-      loader.load(`assets/paper/${name}.png`, t => {
+      loader.load(`assets/paper/${name}.webp`, t => {
         if (window.XQLook) t.encoding = THREE.sRGBEncoding;
         const a = t.image.width / t.image.height, h = size.h || size.w / a, w = size.w || size.h * a;
         card.scale.set(w, h, 1); card.position.y = h / 2;

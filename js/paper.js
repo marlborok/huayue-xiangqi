@@ -27,7 +27,7 @@
   }
   const progress = { done: 0, total: TYPES.length * 2, on: null };   /* set progress.on(done, total) to follow the loading */
   const ready = Promise.all(['r', 'b'].flatMap(s => TYPES.map(async t => {
-    const cv = prepare(await load(`assets/paper/${FILE[s]}-${t}.png`), s);
+    const cv = prepare(await load(`assets/paper/${FILE[s]}-${t}.webp`), s);
     tex[s][t] = new THREE.CanvasTexture(cv); size[s][t] = cv.width / cv.height;
     progress.done++; if (progress.on) progress.on(progress.done, progress.total);
   }))).then(() => true, () => false);
@@ -56,7 +56,7 @@
     /* contact shadow: a soft dark smudge right under her feet, so the card reads as standing on the land */
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.75, 0.42), blobMat());
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.012; blob.renderOrder = 1; g.add(blob);
-    g.userData.card = card; g.userData.top = top;
+    g.userData.card = card; g.userData.top = top; g.userData.phase = Math.random() * 6.28;
     return g;
   }
 
@@ -64,11 +64,14 @@
    * It also leans back toward a high camera (feet stay planted), otherwise the near top-down home view sees the cards edge-on. */
   const LEAN_BACK = 0.85;       /* share of the camera's elevation the card leans back by: 1 = flat to a straight-down camera */
   const v = new THREE.Vector3();
-  function face(fig, camera) {
+  /* t (seconds) and amp add an idle sway: a slow rock and a small bob, each card on its own phase; amp 0 holds still */
+  function face(fig, camera, t, amp) {
     const card = fig.userData.card; if (!card || !fig.parent) return;
     v.copy(camera.position); fig.parent.worldToLocal(v); v.sub(fig.position);
     const yaw = Math.atan2(v.x, v.z), elev = Math.atan2(v.y, Math.hypot(v.x, v.z));
-    card.rotation.set(-Math.max(0, elev) * LEAN_BACK, yaw, 0, 'YXZ');
+    const ph = fig.userData.phase, a = amp || 0, k = t || 0;
+    card.rotation.set(-Math.max(0, elev) * LEAN_BACK, yaw, Math.sin(k * 1.7 + ph) * 0.035 * a, 'YXZ');
+    card.position.y = Math.abs(Math.sin(k * 2.1 + ph)) * 0.035 * a;
   }
 
   /* world position of the top of the card (her head), so the badge can float above it wherever the card leans */

@@ -14,7 +14,7 @@
   <div class="turn" id="turn" role="status"><i></i><span id="turnText">花之國（紅方）的回合</span></div>
 </header>
 <div class="msg gutter" id="bubble">
-  <img class="avatar" id="avatar" alt="" src="assets/paper/flower-K.png">
+  <img class="avatar" id="avatar" alt="" src="assets/paper/flower-K.webp">
   <p class="line"><span class="who" id="who">櫻花公主</span><span class="say" id="say">花之國先走！點一下棋子，看看它可以走到哪裡。</span></p>
   <button id="again" class="primary" hidden>再玩一次</button>
   <p class="sr-only" id="sayLive" aria-live="polite"></p>
@@ -24,6 +24,7 @@
   <div class="loading" id="loading">角色準備中…</div>
   <div class="tally far" id="tallyFar" aria-live="polite"></div>
   <div class="tally near" id="tallyNear" aria-live="polite"></div>
+  <div class="banner" id="banner" hidden><img alt="" id="bannerFace"><span id="bannerText"></span></div>
 </main>
 <footer class="dock gutter">
   <div class="panel gutter" id="panel" hidden>
@@ -37,6 +38,7 @@
       <button id="auto" class="switch" aria-pressed="false">自動轉向</button>
       <button id="sound" class="switch" aria-pressed="true">音效</button>
       <button id="restart">重新開始</button>
+      <button id="toCover">回到封面</button>
     </div>
   </div>
   <nav class="row" aria-label="遊戲控制">
@@ -46,12 +48,50 @@
   </nav>
 </footer>
 
+<!-- face-to-face mode: one seat per player at their own edge of the tablet; the speech bubble moves to the seat of whoever speaks -->
+<section class="seat" id="seat-b" data-side="b" hidden><div class="slot"></div><div class="caps"></div><div class="seat-btns"><button data-act="undo">悔棋</button><button data-act="more">設定</button></div></section>
+<section class="seat" id="seat-r" data-side="r" hidden><div class="slot"></div><div class="caps"></div><div class="seat-btns"><button data-act="undo">悔棋</button><button data-act="more">設定</button></div></section>
+
+<!-- cover: who plays, and how -->
+<div class="cover" id="cover" hidden>
+  <div class="cover-card">
+    <h1 class="brand big"><span>花</span><b>月</b>象棋</h1>
+    <div class="kings"><img src="assets/paper/flower-K.webp" alt="櫻花公主"><img src="assets/paper/moon-K.webp" alt="月光公主"></div>
+    <fieldset class="modes">
+      <legend>怎麼玩？</legend>
+      <label><input type="radio" name="mode" value="ai"><span><b>一個人玩</b>跟電腦下棋</span></label>
+      <label><input type="radio" name="mode" value="same"><span><b>兩個人・同一邊看</b>輪流拿平板</span></label>
+      <label><input type="radio" name="mode" value="f2f"><span><b>兩個人・面對面</b>平板平放在中間</span></label>
+    </fieldset>
+    <div class="who-plays" id="aiOpts">
+      <label>我要當<select id="humanSide"><option value="r">花之國（先走）</option><option value="b">月之國</option></select></label>
+      <label>電腦<select id="aiLevel"><option value="1">簡單</option><option value="2">普通</option></select></label>
+    </div>
+    <div class="who-plays" id="nameOpts">
+      <label><span class="r">花之國</span><input id="nameR" maxlength="8" placeholder="名字（可不填）"></label>
+      <label><span class="b">月之國</span><input id="nameB" maxlength="8" placeholder="名字（可不填）"></label>
+    </div>
+    <button class="primary go" id="go">開始下棋</button>
+  </div>
+</div>
+
+<!-- end of a game -->
+<div class="endcard" id="endcard" hidden>
+  <div class="end-inner">
+    <img id="endFace" alt="">
+    <h2 id="endTitle"></h2>
+    <p id="endStats"></p>
+    <div class="row"><button class="primary" id="endAgain">再玩一次</button><button id="endCover">回到封面</button></div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/environments/RoomEnvironment.js"></script>
 <script src="js/look.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/rules.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/figures.js"></script>
 <script src="js/paper.js"></script>
 <script src="js/terrain.js"></script>

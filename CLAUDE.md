@@ -15,11 +15,13 @@
 - `js/rules.js`：純規則，不碰畫面。`board[rank][file]`，file 0–8，rank 0–9（紅方底線 = 0）。含蹩馬腿、塞象眼、炮隔子、將帥不照面、不能送將、無路可走判負
 - `js/look.js`：畫面調光（2026-10-22）。sRGB 輸出＋RoomEnvironment 天光；r128 沒有自動色彩管理，`manage()` 每格把新物件的 hex 顏色、貼圖、頂點色、燈光、霧轉成線性（標記過就跳過）。**不用 ACES**：試過，粉彩的草地和花瓣會變灰。紙偶卡片 `toneMapped: false` 保留插畫原色
 - `js/sound.js`：音效（Web Audio 合成，無音檔）：選棋、走棋、吃子（花之國清脆／月之國柔和的鈴聲）、將軍、獲勝、說話嘀嘀聲；設定裡可關，記在 localStorage
+- `js/ai.js`：電腦玩家（alpha-beta）：簡單＝看兩步＋大量隨機、普通＝看三步。搜尋內用「國王被吃」取代逐節點將軍檢查，根節點用 `XQRules.legal` 過濾
+- 玩法（2026-10-23）：封面選「一個人玩（對電腦）／兩個人同一邊看／兩個人面對面」，名字與選擇記在 localStorage。面對面：鏡頭正上方、不能轉；直放時花之國在下、月之國在上（上方座位轉 180°）；橫放時花之國在右、月之國在左（座位沿左右邊轉 90°）；說話框移到說話者的座位；紙偶朝自己的玩家後仰、徽章浮在頭的外側；不做特寫。一般模式橫放時改成左側欄。換人時中央跳出轉向該玩家的大字卡；分出勝負跳結束卡
 - `js/figures.js`：幾何角色 `figure(side, t)`（插畫載入失敗時的備用）與徽章貼圖 `badgeTexture()`
-- `js/paper.js`：紙偶角色。`assets/paper/{flower|moon}-{K,A,B,R,N,C,P}.png` 的水彩插畫立成卡片，每格轉向鏡頭並往後仰（`LEAN_BACK`），徽章跟著頭頂走
+- `js/paper.js`：紙偶角色。`assets/paper/{flower|moon}-{K,A,B,R,N,C,P}.webp` 的水彩插畫立成卡片，每格轉向鏡頭並往後仰（`LEAN_BACK`），徽章跟著頭頂走
 - `docs/角色繪圖提示詞.md`：14 個角色的繪圖提示詞；原圖在 `花之國/`、`月之國/`（不進版控），去背後放 `assets/paper/`
 - `js/terrain.js`：「花月大地」地形，`build(scene, aniso)` 回傳 `{ root, fog, update(t, camera, target) }`
-  - 場景風格統一（2026-10-22）：棋盤與周圍地面用 canvas 畫成水彩（`wash`／`pencil`／`grain`），配色取自插畫（`SIDE`），材質全部霧面；整個畫面疊一層紙紋（`.stage::after`）。造景（櫻花樹、花叢、亭子、拱橋、山丘、觀星台、蘑菇、燈籠）已換成紙偶插畫 `assets/paper/scene-*.png`（`cutout()`，轉向鏡頭並後仰 0.6）；原圖在 `場景/`（不進版控）。薰衣草叢（`soft`：畫裡自帶夜光，留成半透明）也已換上。天空背景 `sky-flower.jpg`／`sky-moon.jpg` 掛在半徑 24 的弧形布幕上（`backdrop()`），預設高視角看不到，鏡頭壓低或特寫時才出現
+  - 場景風格統一（2026-10-22）：棋盤與周圍地面用 canvas 畫成水彩（`wash`／`pencil`／`grain`），配色取自插畫（`SIDE`），材質全部霧面；整個畫面疊一層紙紋（`.stage::after`）。造景（櫻花樹、花叢、亭子、拱橋、山丘、觀星台、蘑菇、燈籠）已換成紙偶插畫 `assets/paper/scene-*.webp`（`cutout()`，轉向鏡頭並後仰 0.6）；原圖在 `場景/`（不進版控）。薰衣草叢（`soft`：畫裡自帶夜光，留成半透明）也已換上。天空背景 `sky-flower.jpg`／`sky-moon.jpg` 掛在半徑 24 的弧形布幕上（`backdrop()`），預設高視角看不到，鏡頭壓低或特寫時才出現
 - `js/game.js`：場景、點選與走棋、鏡頭、特寫、介面
 - 座標：`x = file - 4`、`z = 4.5 - rank`；紅方在 +z，黑方在 -z
 
