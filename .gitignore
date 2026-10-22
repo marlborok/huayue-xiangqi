@@ -4,3 +4,5 @@
 場景/
 # local tool settings
 .claude/
+# API keys and other local secrets
+.env
