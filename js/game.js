@@ -485,9 +485,8 @@
     await wait(450);                                   /* let the child see the board settle before the computer answers */
     await new Promise(r => setTimeout(r, 30));        /* paint "電腦思考中…" before the search blocks the page */
     const m = XQAI.choose(board, turn, aiLevel);
-    lock(false);
-    if (!m) return;
-    select(m.from[0], m.from[1], true);
+    if (!m) { lock(false); return; }
+    select(m.from[0], m.from[1], true);                /* stays locked until its move lands: no undo halfway through */
     await wait(650);                                   /* show which piece it picked and where it can go, like a person would */
     doMove(m.to[0], m.to[1]);
   }
@@ -530,7 +529,8 @@
     board = h.board; turn = h.turn; captured = h.captured; over = false; lastMove = h.last; showLast(); $('endcard').hidden = true;
     deselect(); sync(); updateTurn(); updateTrays(); updateCheck();
     speak(turn, kingName(turn), `退回一步，${KINGDOM[turn]}再想想看！`);
-    if (autoTurn && viewSide !== turn) { lock(true); viewSide = turn; await goHome(2400); lock(false); }
+    if (autoTurn && mode === 'same' && viewSide !== turn) { lock(true); viewSide = turn; await goHome(2400); lock(false); }
+    maybeAI();   /* undone back to the computer's own first move: it plays again */
   };
   /* settings panel: closed by default, closes again when the board is touched */
   function setPanel(open) {
@@ -684,5 +684,17 @@
     requestAnimationFrame(loop);
     showCover();
   }
+  /* test hook, only with ?debug in the address: set up a position and play moves without tapping */
+  if (/[?&]debug/.test(location.search)) window.XQDebug = {
+    setup(pieces, side) {      /* pieces: [[side, type, file, rank], ...]; ids follow the order of a new game so the visuals map */
+      const ids = {}, fresh = XQRules.newGame().board; for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) { const p = fresh[r][f]; if (p) (ids[p.side + p.t] = ids[p.side + p.t] || []).push(p.id); }
+      board = Array.from({ length: 10 }, () => Array(9).fill(null));
+      pieces.forEach(([sd, t, f, r]) => { board[r][f] = { id: ids[sd + t].shift(), side: sd, t }; });
+      turn = side || 'r'; history = []; over = false; captured = { r: [], b: [] }; lastMove = null; showLast();
+      deselect(); sync(); updateTurn(); updateTrays(); updateCheck(); $('endcard').hidden = true;
+    },
+    async move(f, r, x, y) { select(f, r, true); await doMove(x, y); },
+    state: () => ({ turn, over, mode, history: history.length, board: board.map(row => row.map(p => p ? p.side + p.t : '')) })
+  };
   start();
 })();
