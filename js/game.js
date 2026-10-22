@@ -259,6 +259,10 @@
   function speak(side, who, text, again) {
     $('bubble').classList.toggle('moon', side === 'b');
     $('who').textContent = who; $('say').textContent = text; $('again').hidden = !again;
+    /* the speaker's portrait: the top of her paper-doll picture */
+    const t = Object.keys(NAME).find(k => NAME[k].includes(who)), av = $('avatar');
+    av.hidden = !(paper && t);
+    if (!av.hidden) av.src = `assets/paper/${side === 'r' ? 'flower' : 'moon'}-${t}.png`;
   }
   function updateTurn() {
     $('turn').classList.toggle('moon', turn === 'b');
@@ -425,8 +429,8 @@
     lock(true); await goHome(1400); lock(false);
   };
   $('flip').onclick = async () => { if (busy) return; viewSide = viewSide === 'r' ? 'b' : 'r'; lock(true); await goHome(2400); lock(false); };
-  $('auto').onclick = () => { autoTurn = !autoTurn; $('auto').textContent = '自動轉向：' + (autoTurn ? '開' : '關'); $('auto').setAttribute('aria-pressed', autoTurn); };
-  $('cinema').onclick = () => { cinema = !cinema; $('cinema').textContent = '精彩特寫：' + (cinema ? '開' : '關'); $('cinema').setAttribute('aria-pressed', cinema); };
+  $('auto').onclick = () => { autoTurn = !autoTurn; $('auto').setAttribute('aria-pressed', autoTurn); };
+  $('cinema').onclick = () => { cinema = !cinema; $('cinema').setAttribute('aria-pressed', cinema); };
   let armed = null;
   $('restart').onclick = () => {
     if (busy) return;

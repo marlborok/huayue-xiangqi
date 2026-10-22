@@ -1,28 +1,45 @@
 /* 花月象棋 — one-screen game: top bar (turn), 3D board filling the middle with a speech bubble, trays and controls below.
-   Single warm look on purpose (a toy on the table), so no dark theme. */
+   The chrome is drawn as the same picture-book paper as the board: cream paper with grain, ink-brown hand-drawn edges,
+   the 霞鶩文楷 brush font, watercolor washes for buttons. Single warm look on purpose (a toy on the table), so no dark theme. */
 :root {
-  --bg: #FBEFEA; --panel: #FFFFFF; --ink: #3B2A2F; --muted: #7A6066; --line: #EAD3CC;
-  --flower: #D9445C; --flower-ink: #B02A45; --flower-solid: #C8304C; --flower-soft: #FCE3E7; --moon: #34457E; --moon-soft: #E7E9F7; --gold: #C98A1B;
+  --bg: #F3E8D6; --paper: #FBF4E6; --paper-deep: #F2E4CC; --ink: #4A3530; --muted: #765F57; --line: #D9C4A8; --edge: #6B4E46;
+  --flower: #D9445C; --flower-ink: #B02A45; --flower-solid: #C8304C; --flower-soft: #FCE3E7; --flower-wash: #F8CBD5;
+  --moon: #34457E; --moon-soft: #E7E9F7; --moon-wash: #D3D3F0; --gold: #C98A1B;
   --display: "LXGW WenKai TC", "Kaiti TC", "STKaiti", "KaiTi", serif;
   --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  /* paper tooth, shared by every paper surface */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .35  0 0 0 .18 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  /* a hand-cut edge: slightly uneven corner radii read as drawn rather than machined */
+  --cut: 16px 12px 18px 11px / 11px 18px 12px 16px;
   color-scheme: light;
 }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); display: flex; flex-direction: column; overflow: hidden; }
 .gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar, .msg, .dock, .panel { background-color: var(--paper); background-image: var(--grain); }
 
-.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding-block: 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.brand { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: 2px; margin: 0; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding-block: 10px; border-bottom: 2px solid var(--line); }
+.brand { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: 3px; margin: 0; }
 .brand span { color: var(--flower); } .brand b { color: var(--moon); font-weight: 700; }
-.turn { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; padding: 8px 16px; border-radius: 999px; background: var(--flower-solid); color: #FFFFFF; box-shadow: 0 2px 8px rgba(200, 48, 76, .35); transition: background .3s, box-shadow .3s; }
+.turn { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 17px; padding: 7px 16px; border-radius: var(--cut);
+  background: var(--flower-solid); color: #FFFFFF; border: 2px solid rgba(74, 53, 48, .35); box-shadow: 0 2px 0 rgba(107, 78, 70, .3); transition: background .3s; }
 /* solid colour with white text (5.3:1 flower, 9.1:1 moon): the turn has to be readable at a glance from across the table */
-.turn.moon { background: var(--moon); box-shadow: 0 2px 8px rgba(52, 69, 126, .35); }
+.turn.moon { background: var(--moon); }
 .turn i { width: 12px; height: 12px; border-radius: 50%; background: currentColor; display: block; }
 
-/* message strip: sits between the top bar and the board, so it never covers the game */
-.msg { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-block: 8px; background: var(--flower-soft); border-bottom: 1px solid var(--line); min-height: 44px; box-sizing: border-box; transition: background .3s; }
-.msg.moon { background: var(--moon-soft); }
-.msg .line { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 15px; line-height: 1.5; }
+/* message strip: the speaking character's portrait and a paper speech bubble, between the top bar and the board so it never covers the game */
+.msg { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; padding-block: 8px; border-bottom: 2px solid var(--line); min-height: 60px; box-sizing: border-box; }
+.avatar { flex: none; width: 46px; height: 46px; border-radius: 50%; object-fit: cover; object-position: 50% 0; background: var(--flower-wash);
+  border: 2px solid var(--flower-ink); box-shadow: 0 2px 0 rgba(107, 78, 70, .25); }
+.msg.moon .avatar { background: var(--moon-wash); border-color: var(--moon); }
+.msg .line { position: relative; margin: 0; flex: 1 1 240px; min-width: 0; font-size: 15px; line-height: 1.55; padding: 7px 12px;
+  background: #FFFDF8; border: 2px solid var(--flower-wash); border-radius: var(--cut); }
+.msg.moon .line { border-color: var(--moon-wash); }
+/* the bubble's tail, pointing at the portrait */
+.msg .line::before { content: ""; position: absolute; left: -9px; top: 50%; width: 12px; height: 12px; margin-top: -7px; background: #FFFDF8;
+  border-left: 2px solid var(--flower-wash); border-bottom: 2px solid var(--flower-wash); transform: rotate(45deg); }
+.msg.moon .line::before { border-color: var(--moon-wash); }
+.msg .avatar[hidden] + .line::before { display: none; }
 .msg .who { font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--flower-ink); margin-right: 8px; }
 .msg.moon .who { color: var(--moon); }
 
@@ -36,29 +53,43 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 [hidden] { display: none !important; }  /* class display rules (.loading, .panel) would otherwise beat the hidden attribute */
 
 /* bottom dock: the everyday buttons stay; everything else folds into a panel that floats over the board */
-.dock { position: relative; background: var(--panel); border-top: 1px solid var(--line); padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+.dock { position: relative; border-top: 2px solid var(--line); padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
 .dock .row { display: flex; gap: 8px; flex-wrap: wrap; }
-.panel { position: absolute; left: 0; right: 0; bottom: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; background: var(--panel); border-top: 1px solid var(--line); box-shadow: 0 -8px 20px rgba(59, 42, 47, .10); }
+.panel { position: absolute; left: 0; right: 0; bottom: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; border-top: 2px solid var(--line); box-shadow: 0 -8px 20px rgba(74, 53, 48, .12); }
 .more::after { content: " ▴"; } .more[aria-expanded="true"]::after { content: " ▾"; }
 
-.trays { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
-.tray { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 26px; }
-.chip { font-family: var(--display); font-weight: 700; width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 15px; border: 2px solid; }
-.chip.r { color: var(--flower); border-color: var(--flower); background: var(--flower-soft); }
-.chip.b { color: var(--moon); border-color: var(--moon); background: var(--moon-soft); }
+.trays { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); font-family: var(--display); }
+.tray { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+/* captured pieces as little ink stamps */
+.chip { font-family: var(--display); font-weight: 700; width: 28px; height: 28px; border-radius: 48% 52% 50% 46% / 52% 46% 54% 48%; display: inline-grid; place-items: center; font-size: 16px;
+  border: 2px solid; background: #FFFAF0; box-shadow: inset 0 0 0 2px #FFFAF0, inset 0 0 0 3px currentColor; }
+.chip.r { color: var(--flower-ink); } .chip.b { color: var(--moon); }
 
-button { font-family: var(--body); font-size: 15px; font-weight: 700; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--ink); background: var(--panel); color: var(--ink); cursor: pointer; }
-button:hover:not(:disabled) { background: var(--flower-soft); }
+/* buttons: a watercolor wash on paper, ink-brown hand-cut edge, a little paper-cut shadow underneath */
+button { font-family: var(--display); font-size: 17px; font-weight: 700; min-height: 44px; padding: 0 16px; border-radius: var(--cut);
+  border: 2px solid var(--edge); color: var(--ink); cursor: pointer;
+  background: radial-gradient(ellipse at 35% 30%, #FFFFFF 0%, #FFF8EE 45%, var(--paper-deep) 100%);
+  box-shadow: 0 2px 0 rgba(107, 78, 70, .35); transition: transform .08s, box-shadow .08s, background .2s; }
+button:hover:not(:disabled) { background: radial-gradient(ellipse at 35% 30%, #FFFFFF 0%, var(--flower-soft) 55%, var(--flower-wash) 100%); }
+button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 0 0 rgba(107, 78, 70, .35); }
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 button.primary { background: var(--ink); color: #FFFFFF; }
-button.warn { background: var(--flower); border-color: var(--flower); color: #FFFFFF; }
+button.warn { background: var(--flower-solid); border-color: var(--flower-ink); color: #FFFFFF; }
+
+/* on/off settings: a little drawn switch in front of the label, filled with colour when on */
+button.switch { display: inline-flex; align-items: center; gap: 10px; }
+button.switch::before { content: ""; flex: none; width: 34px; height: 20px; border-radius: 999px; border: 2px solid var(--edge); box-sizing: border-box;
+  background: radial-gradient(circle at 9px 50%, #FFFFFF 0 6px, transparent 6.5px), #E6D9C6; transition: background .2s; }
+button.switch[aria-pressed="true"]::before { background: radial-gradient(circle at calc(100% - 9px) 50%, #FFFFFF 0 6px, transparent 6.5px), var(--flower-solid); }
+
 @media (max-width: 480px) {
   .bar { padding-block: 6px; }
-  .brand { font-size: 22px; }
-  .turn { font-size: 14px; padding: 6px 12px; }
-  .msg { padding-block: 6px; }
-  .msg .line { font-size: 14px; }
+  .brand { font-size: 23px; }
+  .turn { font-size: 15px; padding: 5px 12px; }
+  .msg { padding-block: 6px; min-height: 52px; }
+  .avatar { width: 38px; height: 38px; }
+  .msg .line { font-size: 14px; padding: 5px 10px; }
   .msg .who { font-size: 16px; }
   .dock .row button { flex: 1 1 auto; padding: 0 12px; }
 }

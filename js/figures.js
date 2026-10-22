@@ -101,14 +101,18 @@
 
   function badgeTexture(side, ch, aniso) {
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
-    const main = side === 'r' ? '#D9445C' : '#34457E', acc = side === 'r' ? '#F2BE4A' : '#B7A6F0';
-    g.fillStyle = main; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill();
-    g.fillStyle = '#FFFFFF'; g.beginPath(); g.arc(128, 128, 112, 0, 7); g.fill();
-    g.strokeStyle = acc; g.lineWidth = 4; g.setLineDash([8, 8]); g.beginPath(); g.arc(128, 128, 119, 0, 7); g.stroke(); g.setLineDash([]);
+    /* an ink stamp on cream paper: a slightly uneven double ring, ink a little patchy, so it sits with the watercolor art */
+    const main = side === 'r' ? '#C8304C' : '#34457E';
+    const blob = (r, wob) => { g.beginPath(); for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2, rr = r + Math.sin(a * 3 + wob) * 2.2 + Math.sin(a * 5 + wob * 2) * 1.4; g.lineTo(128 + Math.cos(a) * rr, 128 + Math.sin(a) * rr); } g.closePath(); };
+    g.fillStyle = main; blob(126, side === 'r' ? 0.4 : 1.7); g.fill();
+    g.fillStyle = '#FFF8EC'; blob(114, 2.3); g.fill();
+    g.strokeStyle = main; g.lineWidth = 3; blob(105, 0.9); g.stroke();
+    /* paper tooth showing through the ink */
+    for (let i = 0; i < 260; i++) { const a = Math.random() * 7, r = 114 + Math.random() * 12; g.fillStyle = 'rgba(255,248,236,0.55)'; g.fillRect(128 + Math.cos(a) * r, 128 + Math.sin(a) * r, 2, 2); }
     /* large glyph, thickened with a stroke of the same colour so it reads as bold even at small sizes */
-    g.font = '700 184px "LXGW WenKai TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineJoin = 'round'; g.strokeStyle = main; g.lineWidth = 9; g.strokeText(ch, 128, 140);
-    g.fillStyle = main; g.fillText(ch, 128, 140);
+    g.font = '700 168px "LXGW WenKai TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineJoin = 'round'; g.strokeStyle = main; g.lineWidth = 9; g.strokeText(ch, 128, 138);
+    g.fillStyle = main; g.fillText(ch, 128, 138);
     const t = new THREE.CanvasTexture(cv); t.anisotropy = aniso || 1; return t;
   }
 
