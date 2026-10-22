@@ -183,6 +183,22 @@ body.f2f.land .seat.b { left: 0; transform: translate(calc(58px - 50%), -50%) ro
 .endcard.rot-r .end-inner { transform: rotate(-90deg); }
 .endcard.rot-l .end-inner { transform: rotate(90deg); }
 @media (max-height: 640px) { .kings img { height: 80px; } .brand.big { font-size: 32px; } .cover-card { gap: 10px; padding: 14px; } }
+/* a short landscape screen (a phone on its side): title and portraits on the left, the choices on the right, no scrolling */
+@media (orientation: landscape) and (max-height: 520px) {
+  .cover-card { width: min(780px, 100%); display: grid; grid-template-columns: 220px 1fr; grid-template-rows: auto 1fr auto auto auto; column-gap: 18px; row-gap: 8px; padding: 12px 16px; }
+  .cover-card > .brand { grid-column: 1; grid-row: 1; }
+  .cover-card > .kings { grid-column: 1; grid-row: 2 / span 2; align-items: center; }
+  .cover-card > .kings img { height: 130px; }
+  .cover-card > .modes { grid-column: 2; grid-row: 1 / span 2; gap: 6px; }
+  .cover-card > .modes label { padding: 6px 10px; }
+  .cover-card > .who-plays { grid-column: 2; }
+  .cover-card > .go { grid-column: 2; min-height: 44px; }
+  .cover-card > .book-link { grid-column: 1; grid-row: 4 / span 2; }
+  .cover { padding: 8px; }
+  .modes legend { margin-bottom: 2px; }
+  .modes span { font-size: 0; } .modes b { font-size: 16px; }   /* just the mode names: the short screen has no room for the notes */
+  .who-plays input, .who-plays select { min-height: 36px; }
+}
 
 /* ---------- 角色圖鑑 ---------- */
 .book { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; padding: 12px; box-sizing: border-box; background: rgba(243, 232, 214, .78); backdrop-filter: blur(3px); }
