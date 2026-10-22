@@ -203,7 +203,20 @@ body.f2f.land .seat.b { left: 0; transform: translate(calc(58px - 50%), -50%) ro
   color: var(--flower-ink); background: #FFF8EC; border: 2px solid currentColor; box-shadow: inset 0 0 0 2px #FFF8EC, inset 0 0 0 3px currentColor; }
 .book.b .stamp { color: var(--moon); }
 .book-item .stamp { position: absolute; top: 6px; left: 6px; }
-.book-back { align-self: flex-start; }
+.book-nav { display: flex; gap: 8px; align-items: stretch; }
+.book-nav button { min-height: 48px; }
+.book-prev, .book-next { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 18px; }
+.book-prev span, .book-next span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+.book-back { flex: none; font-size: 15px; }
+.book-dots { display: flex; justify-content: center; gap: 5px; }
+.book-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.book-dots i.r.on { background: var(--flower-solid); } .book-dots i.b.on { background: var(--moon); }
+.book-dots i.on { transform: scale(1.35); }
+.book-one.from-right { animation: from-right .28s ease both; } .book-one.from-left { animation: from-left .28s ease both; }
+@keyframes from-right { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes from-left { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .book-one.from-right, .book-one.from-left { animation: none; } }
+.book-detail { touch-action: pan-y; }
 .book-detail { display: flex; flex-direction: column; gap: 14px; }
 .book-one { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .book-one img { height: 240px; max-width: 45%; object-fit: contain; filter: drop-shadow(0 3px 2px rgba(74, 53, 48, .2)); }

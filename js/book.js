@@ -72,21 +72,51 @@
       b.onclick = () => showOne(t); grid.appendChild(b);
     });
   }
-  function showOne(t) {
-    const i = side === 'r' ? 0 : 1;
-    detail.innerHTML = `<button class="book-back">← 回到${KINGDOM[side]}</button>
+  /* all fourteen in one ring: the flower kingdom's seven, then the moon kingdom's, then round again */
+  const RING = ['r', 'b'].flatMap(sd => TYPES.map(t => [sd, t]));
+  let at = 0;
+  const nameOf = ([sd, t]) => NAME[t][sd === 'r' ? 0 : 1];
+  function step(d) { at = (at + d + RING.length) % RING.length; side = RING[at][0]; showOne(RING[at][1], d); }
+  function showOne(t, dir) {
+    at = RING.findIndex(([sd, tt]) => sd === side && tt === t);
+    el.className = 'book ' + side;
+    el.querySelectorAll('.book-tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.side === side));
+    const i = side === 'r' ? 0 : 1, prev = RING[(at + RING.length - 1) % RING.length], next = RING[(at + 1) % RING.length];
+    const dots = RING.map(([sd], k) => `<i class="${sd}${k === at ? ' on' : ''}"></i>`).join('');
+    detail.innerHTML = `<div class="book-nav">
+        <button class="book-prev" aria-label="上一位：${nameOf(prev)}">‹ <span>${nameOf(prev)}</span></button>
+        <button class="book-back">全部角色</button>
+        <button class="book-next" aria-label="下一位：${nameOf(next)}"><span>${nameOf(next)}</span> ›</button>
+      </div>
+      <div class="book-dots" aria-hidden="true">${dots}</div>
       <div class="book-one"><img src="${img(side, t)}" alt="${NAME[t][i]}">
         <div><h3><span class="stamp">${CH[t][side]}</span>${NAME[t][i]}</h3><p class="role">象棋裡的「${ROLE[t]}」</p>
         <p class="intro">${INTRO[t][i]}</p><p class="how">「${HINT[t]}」</p></div></div>
       <div class="book-move"><h4>我可以走到哪裡</h4><div class="diag"></div>${NOTE[t] ? `<p class="note">${NOTE[t]}</p>` : ''}</div>`;
     detail.querySelector('.diag').appendChild(diagram(t, side));
     detail.querySelector('.book-back').onclick = showGrid;
-    grid.hidden = true; detail.hidden = false; detail.scrollIntoView({ block: 'start' });
+    detail.querySelector('.book-prev').onclick = () => step(-1);
+    detail.querySelector('.book-next').onclick = () => step(1);
+    const one = detail.querySelector('.book-one');
+    if (dir) one.classList.add(dir > 0 ? 'from-right' : 'from-left');   /* slide in from the side we came from */
+    grid.hidden = true; detail.hidden = false;
   }
+  /* swipe sideways on a character to flip to the next one, like turning a page */
+  let sx = null, sy = null;
+  detail.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
+  detail.addEventListener('pointerup', e => {
+    if (sx === null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+  });
   el.querySelectorAll('.book-tabs button').forEach(b => { b.onclick = () => { side = b.dataset.side; showGrid(); }; });
   el.querySelector('.book-close').onclick = () => { el.hidden = true; };
   el.addEventListener('click', e => { if (e.target === el) el.hidden = true; });
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !el.hidden) el.hidden = true; });
+  addEventListener('keydown', e => {
+    if (el.hidden) return;
+    if (e.key === 'Escape') el.hidden = true;
+    if (!detail.hidden && e.key === 'ArrowRight') step(1);
+    if (!detail.hidden && e.key === 'ArrowLeft') step(-1);
+  });
 
   function open() { side = 'r'; showGrid(); el.hidden = false; el.querySelector('.book-close').focus(); }
   ['openBook', 'coverBook'].forEach(id => { const b = document.getElementById(id); if (b) b.addEventListener('click', open); });
