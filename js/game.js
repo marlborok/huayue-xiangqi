@@ -123,7 +123,7 @@
       scene.add(outer);
       const worry = new THREE.Sprite(new THREE.SpriteMaterial({ map: worryTex, depthTest: false, transparent: true }));
       worry.scale.setScalar(0.42); worry.renderOrder = 6; worry.visible = false; scene.add(worry);
-      vis[p.id] = { outer, tilt, fig, halo, stem, mats: [hm, sm], side: p.side, worry };
+      vis[p.id] = { outer, tilt, fig, halo, stem, mats: [hm, sm], side: p.side, worry, key };
     }
   }
   function sync() {
@@ -286,7 +286,7 @@
       const v = m.userData.v;
       m.position.set(at.x + v.x * t, at.y + v.y * t - (up ? 1.2 * t * t : -0.6 * t), at.z + v.z * t);
       m.rotation.x += 0.15; m.rotation.y += 0.1; m.material.opacity = 1 - t;
-    })).then(() => ps.forEach(m => scene.remove(m)));
+    })).then(() => { ps.forEach(m => { scene.remove(m); m.material.dispose(); }); geo.dispose(); });
   }
   function exclaim(at) {
     const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d');
@@ -466,8 +466,12 @@
     }
 
     turn = turn === 'r' ? 'b' : 'r'; updateTurn();
+    const drawWhy = XQRules.anyLegal(board, turn) ? drawReason() : '';   /* a mate wins even if it also repeats a position */
 
-    if (!XQRules.anyLegal(board, turn)) {
+    if (drawWhy) {
+      over = true; showTurnGlow(); updateCheck();
+      speak(turn, kingName(turn), `平手！${drawWhy}`);
+    } else if (!XQRules.anyLegal(board, turn)) {
       over = true; showTurnGlow(); const win = turn === 'r' ? 'b' : 'r';
       updateCheck();
       sfx('win', win); speak(win, kingName(win), `${KINGDOM[win]}贏了！${KINGDOM[turn]}的${kingName(turn)}已經沒有路可以走了。`);
@@ -488,7 +492,7 @@
         const kv = vis[board[k[1]][k[0]].id];
         const ex2 = exclaim(new THREE.Vector3(wx(k[0]), 1.75, wz(k[1])));
         await tw(D(1500), t => { kv.fig.rotation.z = Math.sin(t * Math.PI * 10) * 0.12 * (1 - t); });
-        await wait(700); scene.remove(ex2);
+        await wait(700); scene.remove(ex2); ex2.material.map.dispose(); ex2.material.dispose();
       }
     } else {
       updateCheck();
@@ -499,9 +503,25 @@
     if (autoTurn && mode === 'same' && !over && viewSide !== turn) { viewSide = turn; flipped = true; }
     if (usedCam || flipped) await goHome(flipped ? 2400 : 1600);
     lock(false);
-    if (over) { showEnd(turn === 'r' ? 'b' : 'r'); return; }
+    if (over) { showEnd(drawWhy ? null : turn === 'r' ? 'b' : 'r', drawWhy); return; }
+    saveGame();
     if (mode !== 'ai' || turn === humanSide) showBanner(turn);
     maybeAI();
+  }
+
+  /* ---------- draws ----------
+   * Simplified for a family game: the same position three times, a long stretch with nobody taken,
+   * or neither side has anything left that can cross the river and attack. */
+  const NO_CAPTURE_PLIES = 120;
+  const seenKeys = () => history.map(h => XQAI.key(h.board, h.turn));
+  function drawReason() {
+    const now = XQAI.key(board, turn);
+    if (seenKeys().filter(k => k === now).length >= 2) return '同樣的局面已經出現三次了。';
+    const total = c => c.r.length + c.b.length, n = total(captured);
+    let quiet = 0; for (let i = history.length - 1; i >= 0 && total(history[i].captured) === n; i--) quiet++;
+    if (quiet >= NO_CAPTURE_PLIES) return `已經 ${NO_CAPTURE_PLIES / 2} 回合都沒有人被吃了。`;
+    if (!board.some(row => row.some(p => p && 'RNCP'.includes(p.t)))) return '兩邊都沒有可以進攻的棋子了。';
+    return '';
   }
 
   /* ---------- the computer player ---------- */
@@ -510,7 +530,7 @@
     lock(true);
     await wait(450);                                   /* let the child see the board settle before the computer answers */
     await new Promise(r => setTimeout(r, 30));        /* paint "電腦思考中…" before the search blocks the page */
-    const m = XQAI.choose(board, turn, aiLevel);
+    const m = XQAI.choose(board, turn, aiLevel, new Set([...seenKeys(), XQAI.key(board, turn)]));   /* it avoids going round in circles */
     if (!m) { lock(false); return; }
     select(m.from[0], m.from[1], true);                /* stays locked until its move lands: no undo halfway through */
     await wait(650);                                   /* show which piece it picked and where it can go, like a person would */
@@ -518,13 +538,16 @@
   }
 
   /* ---------- end of a game ---------- */
-  function showEnd(win) {
+  /* win: 'r' / 'b', or null for a draw (why says what happened) */
+  function showEnd(win, why) {
     const e = $('endcard');
-    $('endFace').src = `assets/paper/${win === 'r' ? 'flower' : 'moon'}-K.webp`; $('endFace').hidden = !paper;
-    $('endTitle').textContent = mode === 'ai' ? (win === humanSide ? '你贏了！好厲害！' : '電腦贏了，再挑戰一次吧！') : `${label(win)}贏了！`;
+    $('endFace').src = `assets/paper/${win === 'b' ? 'moon' : 'flower'}-K.webp`; $('endFace').hidden = !paper || !win;
+    $('endTitle').textContent = !win ? '平手！兩國都很厲害！'
+      : mode === 'ai' ? (win === humanSide ? '你贏了！好厲害！' : '電腦贏了，再挑戰一次吧！') : `${label(win)}贏了！`;
     const moves = history.length;
-    $('endStats').textContent = `${KINGDOM.r}收集了 ${captured.r.length} 個、${KINGDOM.b}收集了 ${captured.b.length} 個，一共走了 ${moves} 步。`;
-    e.className = 'endcard ' + win + ' ' + facing(win); e.hidden = false;
+    $('endStats').textContent = (why ? why + ' ' : '') + `${KINGDOM.r}收集了 ${captured.r.length} 個、${KINGDOM.b}收集了 ${captured.b.length} 個，一共走了 ${moves} 步。`;
+    e.className = 'endcard ' + (win || 'draw') + ' ' + (win ? facing(win) : ''); e.hidden = false;
+    clearGame(); awake(false);
   }
 
   /* ---------- input: pick by grid square, not by model, so any model size taps the same ---------- */
@@ -556,6 +579,7 @@
     deselect(); sync(); updateTurn(); updateTrays(); updateCheck();
     speak(turn, kingName(turn), `退回一步，${KINGDOM[turn]}再想想看！`);
     if (autoTurn && mode === 'same' && viewSide !== turn) { lock(true); viewSide = turn; await goHome(2400); lock(false); }
+    saveGame(); awake(true);
     maybeAI();   /* undone back to the computer's own first move: it plays again */
   };
   /* settings panel: closed by default, closes again when the board is touched */
@@ -609,9 +633,44 @@
   $('endCover').onclick = () => { $('endcard').hidden = true; showCover(); };
   $('toCover').onclick = () => { if (!busy) { setPanel(false); showCover(); } };
 
+  /* ---------- the game in progress survives a reload (a swipe, a closed tab, the tablet freeing memory) ----------
+   * Pieces are stored by id: every piece object is rebuilt from a new game's set, so ids keep matching the visuals. */
+  const GAME = 'huayue.game';
+  const flat = B => B.flat().map(p => p ? p.id : -1);
+  function saveGame() {
+    if (over || !board) return;
+    const g = { v: 1, mode, humanSide, aiLevel, names, turn, board: flat(board), captured: { r: captured.r.map(p => p.id), b: captured.b.map(p => p.id) }, last: lastMove,
+      history: history.map(h => ({ board: flat(h.board), turn: h.turn, captured: { r: h.captured.r.map(p => p.id), b: h.captured.b.map(p => p.id) }, last: h.last })) };
+    try { localStorage.setItem(GAME, JSON.stringify(g)); } catch (e) { /* not kept; the game goes on */ }
+  }
+  function clearGame() { try { localStorage.removeItem(GAME); } catch (e) { /* nothing to clear */ } }
+  function savedGame() { try { const g = JSON.parse(localStorage.getItem(GAME)); return g && g.v === 1 ? g : null; } catch (e) { return null; } }
+  function loadGame(g) {
+    const P = {}; XQRules.newGame().board.flat().forEach(p => { if (p) P[p.id] = p; });
+    const unflat = a => Array.from({ length: 10 }, (_, r) => a.slice(r * 9, r * 9 + 9).map(id => id < 0 ? null : P[id]));
+    const caps = c => ({ r: c.r.map(id => P[id]), b: c.b.map(id => P[id]) });
+    board = unflat(g.board); turn = g.turn; captured = caps(g.captured); lastMove = g.last; over = false; selected = null; legalNow = [];
+    history = g.history.map(h => ({ board: unflat(h.board), turn: h.turn, captured: caps(h.captured), last: h.last }));
+  }
+
+  /* ---------- keep the tablet awake while a game is on (thinking takes a while) ---------- */
+  let wakeLock = null;
+  async function awake(on) {
+    try {
+      if (on && !over && document.visibilityState === 'visible' && navigator.wakeLock && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch (e) { /* not supported or refused: the screen may dim, nothing else changes */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('cover').hidden && !over) awake(true); });
+
   /* ---------- cover ---------- */
   const SAVE = 'huayue.setup';
   function showCover() {
+    awake(false);
+    const g = savedGame();
+    $('resume').hidden = !g;
+    if (g) $('resume').textContent = `繼續上一局（${g.mode === 'ai' ? '跟電腦下' : g.mode === 'f2f' ? '面對面' : '兩人同一邊'}・第 ${g.history.length + 1} 步）`;
     let sv = {}; try { sv = JSON.parse(localStorage.getItem(SAVE)) || {}; } catch (e) { /* storage blocked: defaults */ }
     const m = sv.mode || 'same';
     document.querySelectorAll('input[name="mode"]').forEach(x => { x.checked = x.value === m; });
@@ -624,17 +683,31 @@
     $('aiOpts').hidden = m !== 'ai'; $('nameOpts').hidden = m === 'ai';
   }
   document.querySelectorAll('input[name="mode"]').forEach(x => { x.onchange = coverOpts; });
-  $('go').onclick = () => {
-    mode = (document.querySelector('input[name="mode"]:checked') || { value: 'same' }).value;
-    humanSide = $('humanSide').value; aiLevel = +$('aiLevel').value;
-    names = mode === 'ai' ? { r: '', b: '' } : { r: $('nameR').value.trim(), b: $('nameB').value.trim() };
-    try { localStorage.setItem(SAVE, JSON.stringify({ mode, humanSide, aiLevel, names })); } catch (e) { /* not remembered, still applies */ }
+  /* the page set up for the chosen way of playing */
+  function applyMode() {
     $('cover').hidden = true;
     /* the view-side settings only make sense when two people share one view */
     ['flip', 'auto'].forEach(id => { $(id).hidden = mode !== 'same'; });
     $('view').hidden = f2f(); $('cinema').hidden = f2f();
     controls.enabled = !f2f(); if (!f2f()) camera.up.set(0, 1, 0);
-    layout(); restart(true);
+    layout();
+  }
+  $('go').onclick = () => {
+    if (busy) return;
+    mode = (document.querySelector('input[name="mode"]:checked') || { value: 'same' }).value;
+    humanSide = $('humanSide').value; aiLevel = +$('aiLevel').value;
+    names = mode === 'ai' ? { r: '', b: '' } : { r: $('nameR').value.trim(), b: $('nameB').value.trim() };
+    try { localStorage.setItem(SAVE, JSON.stringify({ mode, humanSide, aiLevel, names })); } catch (e) { /* not remembered, still applies */ }
+    applyMode(); restart(true);
+  };
+  $('resume').onclick = async () => {
+    const g = savedGame(); if (!g || busy) return;
+    mode = g.mode; humanSide = g.humanSide; aiLevel = g.aiLevel; names = g.names || { r: '', b: '' };
+    applyMode(); loadGame(g);
+    clearMarkers(); sync(); showLast(); updateTurn(); updateTrays(); updateCheck(); $('endcard').hidden = true;
+    speak(turn, kingName(turn), `歡迎回來！接著上一局，輪到${label(turn)}。`);
+    lock(true); viewSide = mode === 'ai' ? humanSide : mode === 'same' ? turn : 'r'; await goHome(1400); lock(false);
+    awake(true); showBanner(turn); maybeAI();
   };
 
   function newState() {
@@ -648,6 +721,7 @@
     const first = mode === 'ai' && humanSide === 'b' ? '新的一局開始！花之國先走，電腦正在想第一步。' : `新的一局開始！${label('r')}先走，點一下棋子看看它可以走到哪裡。`;
     speak('r', kingName('r'), first);
     lock(true); viewSide = mode === 'ai' ? humanSide : 'r'; await goHome(1400); lock(false);
+    saveGame(); awake(true);
     showBanner('r'); maybeAI();
   }
 
@@ -702,6 +776,11 @@
         new Promise(r => setTimeout(r, 3000))
       ]);
     } catch (e) { /* fall back to system kai font */ }
+    const BADGE_FONT = '700 150px "LXGW WenKai TC"';
+    if (!document.fonts.check(BADGE_FONT, '帥將')) document.fonts.load(BADGE_FONT, '帥將仕士相象俥車傌馬炮包兵卒').then(() => {
+      Object.keys(badgeCache).forEach(k => { const old = badgeCache[k]; badgeCache[k] = badgeTexture(k[0], CH[k[1]][k[0]], aniso); old.dispose(); });
+      Object.values(vis).forEach(v => { v.halo.material.map = badgeCache[v.key]; v.halo.material.needsUpdate = true; });
+    }).catch(() => { /* stays on the fallback font */ });
     if (window.XQPaper) { /* show how many characters have arrived, so a slow connection does not look frozen */
       const show = (n, t) => { $('loading').textContent = `角色準備中… ${n} / ${t}`; };
       XQPaper.progress.on = show; show(XQPaper.progress.done, XQPaper.progress.total);

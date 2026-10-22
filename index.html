@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>花月象棋</title>
+<!-- installable: add to the home screen for a full-screen app that also works offline -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FBF4E6">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="花月象棋">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" href="assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap">
 <link rel="stylesheet" href="css/style.css">
@@ -73,6 +82,7 @@
       <label><span class="r">花之國</span><input id="nameR" maxlength="8" placeholder="名字（可不填）"></label>
       <label><span class="b">月之國</span><input id="nameB" maxlength="8" placeholder="名字（可不填）"></label>
     </div>
+    <button class="resume" id="resume" hidden>繼續上一局</button>
     <button class="primary go" id="go">開始下棋</button>
     <button class="book-link" id="coverBook">看看角色圖鑑</button>
   </div>
@@ -100,5 +110,6 @@
 <script src="js/terrain.js"></script>
 <script src="js/game.js"></script>
 <script src="js/book.js"></script>
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { /* plays online only */ }));</script>
 </body>
 </html>

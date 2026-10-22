@@ -55,7 +55,11 @@
     return any ? best : -WIN;
   }
 
-  function choose(board, side, level) {
+  /* a position as a string: who is to move plus every square, for spotting repeats */
+  const key = (B, side) => side + B.map(row => row.map(p => p ? p.side + p.t : '..').join('')).join('');
+
+  /* seen: positions already on the board this game; moving back into one costs a little, so it does not go round in circles */
+  function choose(board, side, level, seen) {
     const B = board.map(row => row.slice()), other = side === 'r' ? 'b' : 'r';
     const depth = level >= 2 ? 3 : 2, noise = level >= 2 ? 6 : 40;
     let best = null, bestV = -Infinity;
@@ -64,7 +68,7 @@
       legal(B, f, r).forEach(([x, y]) => {
         const q = B[y][x];
         B[y][x] = p; B[r][f] = null;
-        const v = -search(B, other, depth - 1, -Infinity, Infinity) + Math.random() * noise;
+        const v = -search(B, other, depth - 1, -Infinity, Infinity) + Math.random() * noise - (seen && seen.has(key(B, other)) ? 30 : 0);
         B[r][f] = p; B[y][x] = q;
         if (v > bestV) { bestV = v; best = { from: [f, r], to: [x, y] }; }
       });
@@ -72,5 +76,5 @@
     return best;
   }
 
-  window.XQAI = { choose };
+  window.XQAI = { choose, key };
 })();
