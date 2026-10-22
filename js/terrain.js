@@ -143,12 +143,13 @@
     const rand = (a, b) => a + Math.random() * (b - a);
 
     /* scenery as paper cutouts: the watercolor drawings in assets/paper/scene-*.png standing upright and turning to face the camera.
-     * size is { h } (height) or { w } (width); the other side follows the picture. They stay hidden until their picture loads. */
+     * size is { h } (height) or { w } (width); the other side follows the picture. They stay hidden until their picture loads.
+     * o.soft: the drawing has a painted glow around it, kept translucent (no hard alpha cut, no depth write). */
     const cards = [], loader = new THREE.TextureLoader();
     function cutout(name, size, x, z, o) {
       o = o || {};
       const pivot = new THREE.Group(); pivot.position.set(x, o.y || 0, z); root.add(pivot);
-      const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, toneMapped: false });
+      const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: o.soft ? 0.02 : 0.35, depthWrite: !o.soft, side: THREE.DoubleSide, toneMapped: false });
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.35 });
       const card = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); card.castShadow = true; card.customDepthMaterial = depth; card.visible = false;
       pivot.add(card);
@@ -188,6 +189,35 @@
     const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
     const starMat = new THREE.PointsMaterial({ color: '#FFFFFF', size: 0.35, transparent: true, opacity: 0.9, fog: false });
     root.add(new THREE.Points(sg, starMat));
+
+    /* painted horizons: a wide watercolor landscape hung on a curved backdrop just past the edge of the land,
+     * the spring garden behind the flower kingdom and the moonlit hills behind the moon kingdom.
+     * The picture fades out at its sides and top so it melts into the sky dome. */
+    function backdrop(name, s) {
+      const R = 24, ARC = Math.PI * 0.72;
+      const mat = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide, fog: false, depthWrite: false, toneMapped: false });
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 1, 48, 1, true, (s > 0 ? 0 : Math.PI) - ARC / 2, ARC), mat);
+      mesh.visible = false; mesh.renderOrder = -1; root.add(mesh);
+      new THREE.TextureLoader().load(`assets/paper/${name}.jpg`, t => {
+        const img = t.image, cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+        const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+        /* the cylinder is seen from inside, so mirror the picture to read the right way round */
+        const flip = document.createElement('canvas'); flip.width = cv.width; flip.height = cv.height;
+        const f = flip.getContext('2d'); f.translate(cv.width, 0); f.scale(-1, 1); f.drawImage(cv, 0, 0);
+        f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'destination-in';
+        const gx = f.createLinearGradient(0, 0, cv.width, 0);
+        gx.addColorStop(0, 'rgba(0,0,0,0)'); gx.addColorStop(0.14, '#000'); gx.addColorStop(0.86, '#000'); gx.addColorStop(1, 'rgba(0,0,0,0)');
+        f.fillStyle = gx; f.fillRect(0, 0, cv.width, cv.height);
+        const gy = f.createLinearGradient(0, 0, 0, cv.height);
+        gy.addColorStop(0, 'rgba(0,0,0,0)'); gy.addColorStop(0.25, '#000'); gy.addColorStop(1, '#000');
+        f.fillStyle = gy; f.fillRect(0, 0, cv.width, cv.height);
+        const tex = new THREE.CanvasTexture(flip); if (window.XQLook) tex.encoding = THREE.sRGBEncoding;
+        const H = R * ARC / (img.width / img.height);
+        mesh.scale.y = H; mesh.position.y = H / 2 - 1;
+        mat.map = tex; mat.needsUpdate = true; mesh.visible = true;
+      });
+    }
+    backdrop('sky-flower', 1); backdrop('sky-moon', -1);
     anim.push(t => { starMat.opacity = 0.7 + Math.sin(t * 1.3) * 0.25; });
 
     /* lights: a soft cool fill from the moon side */
@@ -253,15 +283,13 @@
     /* moon kingdom scenery: hills, lavender, glowing mushrooms, an observatory */
     const hills = [[-8.5, -7, 3.2], [8.8, -6.6, 3.6], [0, -12, 5], [-12, -2.5, 2.4], [12, -3, 2.6]]
       .map(([x, z, r]) => cutout('scene-moon-hill', { w: r * 1.9 }, x, z, { landmark: r }));
-    const lav = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.32, 5), M('#B7A2E6'), 260);
-    const dm = new THREE.Object3D(); let n = 0;
-    [[-9, -5.4], [5.4, 9]].forEach(([x0, x1]) => {
-      for (let row = 0; row < 6; row++) for (let i = 0; i < 22 && n < 260; i++) {
-        dm.position.set(x0 + (x1 - x0) * (i / 21) + rand(-0.05, 0.05), 0.16, -1.2 - row * 0.7 + rand(-0.08, 0.08));
-        dm.rotation.z = rand(-0.15, 0.15); dm.updateMatrix(); lav.setMatrixAt(n++, dm.matrix);
+    /* lavender fields beside the moon palace: staggered rows of painted clumps */
+    [[-9, -5.6], [5.6, 9]].forEach(([x0, x1]) => {
+      for (let row = 0; row < 4; row++) for (let i = 0; i < 3; i++) {
+        const x = x0 + (x1 - x0) * ((i + (row % 2) * 0.5) / 3) + rand(-0.15, 0.15);
+        cutout('scene-moon-lavender', { h: rand(0.7, 0.9) }, x, -1.4 - row * 1.0 + rand(-0.15, 0.15), { soft: true });
       }
     });
-    lav.count = n; lav.castShadow = true; root.add(lav);
     [[-6.2, -2.3], [6.1, -2.2], [-5.6, -6.6], [6.4, -7.2], [-2.6, -6.6], [2.8, -6.8]].forEach(([x, z]) =>
       cutout('scene-moon-mushrooms', { h: rand(0.45, 0.65) }, x, z));
     const obs = cutout('scene-moon-observatory', { h: 2.2 }, 0, -7.4, { landmark: 2.4 });

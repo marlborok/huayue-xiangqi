@@ -18,7 +18,7 @@
 - `js/paper.js`：紙偶角色。`assets/paper/{flower|moon}-{K,A,B,R,N,C,P}.png` 的水彩插畫立成卡片，每格轉向鏡頭並往後仰（`LEAN_BACK`），徽章跟著頭頂走
 - `docs/角色繪圖提示詞.md`：14 個角色的繪圖提示詞；原圖在 `花之國/`、`月之國/`（不進版控），去背後放 `assets/paper/`
 - `js/terrain.js`：「花月大地」地形，`build(scene, aniso)` 回傳 `{ root, fog, update(t, camera, target) }`
-  - 場景風格統一（2026-10-22）：棋盤與周圍地面用 canvas 畫成水彩（`wash`／`pencil`／`grain`），配色取自插畫（`SIDE`），材質全部霧面；整個畫面疊一層紙紋（`.stage::after`）。造景（櫻花樹、花叢、亭子、拱橋、山丘、觀星台、蘑菇、燈籠）已換成紙偶插畫 `assets/paper/scene-*.png`（`cutout()`，轉向鏡頭並後仰 0.6）；原圖在 `場景/`（不進版控）。還缺薰衣草叢（目前仍是 3D 圓錐），提示詞在 `docs/場景繪圖提示詞.md`
+  - 場景風格統一（2026-10-22）：棋盤與周圍地面用 canvas 畫成水彩（`wash`／`pencil`／`grain`），配色取自插畫（`SIDE`），材質全部霧面；整個畫面疊一層紙紋（`.stage::after`）。造景（櫻花樹、花叢、亭子、拱橋、山丘、觀星台、蘑菇、燈籠）已換成紙偶插畫 `assets/paper/scene-*.png`（`cutout()`，轉向鏡頭並後仰 0.6）；原圖在 `場景/`（不進版控）。薰衣草叢（`soft`：畫裡自帶夜光，留成半透明）也已換上。天空背景 `sky-flower.jpg`／`sky-moon.jpg` 掛在半徑 24 的弧形布幕上（`backdrop()`），預設高視角看不到，鏡頭壓低或特寫時才出現
 - `js/game.js`：場景、點選與走棋、鏡頭、特寫、介面
 - 座標：`x = file - 4`、`z = 4.5 - rank`；紅方在 +z，黑方在 -z
 

@@ -1,4 +1,4 @@
-/* 花月象棋 — the rendering look: correct color space, filmic tone mapping and soft sky light.
+/* 花月象棋 — the rendering look: correct color space and soft sky light (no tone mapping, see TONE).
  * The rest of the code writes colors as plain sRGB hex (three.js r128 has no automatic color management),
  * so manage(root) converts every material, texture, vertex color, light and fog it finds once, marking what it did.
  * Run it after building the scene and again whenever new objects appear (game.js calls it from the render loop).
