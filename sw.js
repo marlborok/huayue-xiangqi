@@ -4,7 +4,7 @@
  * - pictures, the three.js files and the fonts: cache first (they never change under the same address), network to fill the cache.
  * One full load while online is enough to play offline afterwards. Bump VERSION only to throw the whole cache away.
  */
-const VERSION = 'huayue-v3';
+const VERSION = 'huayue-v4';
 const SHELL = ['./', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/look.js', 'js/sound.js', 'js/rules.js', 'js/ai.js', 'js/figures.js', 'js/paper.js', 'js/terrain.js', 'js/game.js', 'js/book.js', 'assets/paper/variants.json'];
 
@@ -43,6 +43,28 @@ const ASSETS = [
   'assets/paper/moon-K-worry.webp',
   'assets/paper/moon-P-up.webp',
   'assets/paper/moon-R-happy.webp',
+  'assets/paper/flower-A-happy.webp',
+  'assets/paper/flower-A-worry.webp',
+  'assets/paper/flower-B-happy.webp',
+  'assets/paper/flower-B-worry.webp',
+  'assets/paper/flower-C-happy.webp',
+  'assets/paper/flower-C-worry.webp',
+  'assets/paper/flower-N-happy.webp',
+  'assets/paper/flower-N-worry.webp',
+  'assets/paper/flower-P-happy.webp',
+  'assets/paper/flower-P-worry.webp',
+  'assets/paper/flower-R-worry.webp',
+  'assets/paper/moon-A-happy.webp',
+  'assets/paper/moon-A-worry.webp',
+  'assets/paper/moon-B-happy.webp',
+  'assets/paper/moon-B-worry.webp',
+  'assets/paper/moon-C-happy.webp',
+  'assets/paper/moon-C-worry.webp',
+  'assets/paper/moon-N-happy.webp',
+  'assets/paper/moon-N-worry.webp',
+  'assets/paper/moon-P-happy.webp',
+  'assets/paper/moon-P-worry.webp',
+  'assets/paper/moon-R-worry.webp',
   'assets/paper/sky-flower.jpg',
   'assets/paper/sky-moon.jpg',
   'assets/icons/apple-touch-icon.png',
