@@ -199,7 +199,8 @@
   function homeView(side) {
     const s = side === 'r' ? 1 : -1, half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const fitH = 5.2 / half, fitW = 5.4 / (half * camera.aspect);
-    const dist = Math.max(fitH, fitW) * 1.04 + 1.6;
+    /* a tall phone is limited by the board's width: keep the margin small there, or the board shrinks into a strip of scenery */
+    const dist = Math.max(fitH, fitW) * 1.04 + (camera.aspect < 0.8 ? 0.3 : 1.6);
     /* paper dolls are flat cards, so they need a lower camera than the 3D figures to be seen standing */
     const phi = topMode ? 0.002 : paper ? 0.6 : 0.25;
     const look = new THREE.Vector3(0, 0, topMode ? 0 : 0.25 * s);
@@ -224,7 +225,7 @@
   /* while the camera sits at the home view, a resize (phone rotation, address bar) re-frames the board */
   let atHome = true;
   controls.addEventListener('start', () => { atHome = false; });
-  const goHome = ms => { const h = homeView(viewSide); return camTo(h.pos, h.look, ms).then(() => { atHome = true; }); };
+  const goHome = ms => { updateTrays(); const h = homeView(viewSide); return camTo(h.pos, h.look, ms).then(() => { atHome = true; }); };
   /* close-up from the front of a piece: red pieces face -z, black pieces face +z */
   function closeUp(f, r, side) {
     const x = wx(f), z = wz(r), front = side === 'r' ? -1 : 1;
@@ -259,7 +260,8 @@
   /* the line appears letter by letter like a character talking: every letter is laid out from the start (hidden),
    * so the bubble never grows and pushes the board while she speaks; a short pause after punctuation; a tap shows it all */
   const SAY_MS = 36, PAUSE = { '，': 140, '、': 140, '；': 160, '：': 160, '！': 240, '？': 240, '。': 260, '…': 260 };
-  let sayTimer = null;
+  let sayTimer = null, saySide = 'r';
+  const sfx = (name, side) => { if (window.XQSound) XQSound.play(name, side); };
   function finishSay() { clearTimeout(sayTimer); sayTimer = null; $('say').querySelectorAll('.h').forEach(s => s.classList.remove('h')); }
   function typeSay(text) {
     finishSay();
@@ -270,6 +272,7 @@
     const step = () => {
       if (i >= spans.length) { sayTimer = null; return; }
       const s = spans[i++]; s.classList.remove('h');
+      if (i % 3 === 1) sfx('blip', saySide);
       sayTimer = setTimeout(step, SAY_MS + (PAUSE[s.textContent] || 0));
     };
     step();
@@ -277,6 +280,7 @@
   $('bubble').addEventListener('click', e => { if (sayTimer && e.target.id !== 'again') finishSay(); });
 
   function speak(side, who, text, again) {
+    saySide = side;
     $('bubble').classList.toggle('moon', side === 'b');
     $('who').textContent = who; typeSay(text); $('again').hidden = !again;
     $('sayLive').textContent = who + '：' + text;   /* screen readers get the whole line at once, not letter by letter */
@@ -290,12 +294,20 @@
     $('turnText').textContent = turn === 'r' ? '花之國（紅方）的回合' : '月之國（黑方）的回合';
     showTurnGlow();
   }
+  /* who each kingdom has sent to rest, shown on the board itself: the near edge for the side we view from, the far edge for the other.
+   * Portraits of the captured characters when the paper dolls are in, little stamps otherwise. */
   function updateTrays() {
-    const fill = (el, label, list) => {
-      el.textContent = label;
-      list.forEach(p => { const c = document.createElement('span'); c.className = 'chip ' + p.side; c.textContent = CH[p.t][p.side]; c.title = nm(p); el.appendChild(c); });
+    const fill = (el, side) => {
+      const list = captured[side]; el.textContent = ''; el.hidden = !list.length; el.className = 'tally ' + (side === viewSide ? 'near' : 'far') + ' ' + side;
+      const lab = document.createElement('span'); lab.className = 'tlabel'; lab.textContent = KINGDOM[side] + '收集到'; el.appendChild(lab);
+      list.forEach(p => {
+        let c;
+        if (paper) { c = document.createElement('img'); c.className = 'face ' + p.side; c.src = `assets/paper/${p.side === 'r' ? 'flower' : 'moon'}-${p.t}.png`; c.alt = nm(p); }
+        else { c = document.createElement('span'); c.className = 'chip ' + p.side; c.textContent = CH[p.t][p.side]; }
+        c.title = nm(p); el.appendChild(c);
+      });
     };
-    fill($('trayR'), '花之國收集到：', captured.r); fill($('trayB'), '月之國收集到：', captured.b);
+    fill($('tallyNear'), viewSide); fill($('tallyFar'), viewSide === 'r' ? 'b' : 'r');
   }
   function updateCheck() {
     if (!over && XQRules.inCheck(board, turn)) { const k = XQRules.findK(board, turn); checkRing.position.set(wx(k[0]), 0.02, wz(k[1])); checkRing.visible = true; }
@@ -331,7 +343,7 @@
     } else if (XQRules.pseudo(board, f, r).length > legalNow.length) {
       say += ` 有些地方我不能去，因為那樣${kingName(p.side)}會有危險。`;
     }
-    speak(p.side, nm(p), say);
+    speak(p.side, nm(p), say); sfx('select');
   }
 
   async function doMove(tx, ty) {
@@ -354,6 +366,7 @@
     const pop = () => {
       const vv = vis[victim.id];
       burst(new THREE.Vector3(ex, 0.6, ez), p.side === 'r' ? PETALS : STARS, 26, true);
+      sfx('capture', p.side);
       tw(320, t => vv.outer.scale.setScalar(1 - t)).then(() => { vv.outer.visible = false; });
     };
     await tw(D(dur), t => {
@@ -362,7 +375,7 @@
       if (victim && !popped && t > 0.62) { popped = true; pop(); }
     });
     if (victim && !popped) pop();
-    o.position.set(ex, 0, ez);
+    o.position.set(ex, 0, ez); if (!victim) sfx('move');
 
     if (victim) {
       captured[p.side].push(victim); updateTrays();
@@ -375,7 +388,7 @@
     if (!XQRules.anyLegal(board, turn)) {
       over = true; showTurnGlow(); const win = turn === 'r' ? 'b' : 'r';
       updateCheck();
-      speak(win, kingName(win), `${KINGDOM[win]}贏了！${KINGDOM[turn]}的${kingName(turn)}已經沒有路可以走了。`, true);
+      sfx('win', win); speak(win, kingName(win), `${KINGDOM[win]}贏了！${KINGDOM[turn]}的${kingName(turn)}已經沒有路可以走了。`, true);
       if (cinema) {
         usedCam = true;
         const k = XQRules.findK(board, win); await closeUp(k[0], k[1], win);
@@ -386,7 +399,7 @@
       }
     } else if (XQRules.inCheck(board, turn)) {
       updateCheck();
-      speak(turn, kingName(turn), `${kingName(turn)}被將軍了！快把她移開、擋住，或吃掉威脅她的棋子！`);
+      sfx('check'); speak(turn, kingName(turn), `${kingName(turn)}被將軍了！快把她移開、擋住，或吃掉威脅她的棋子！`);
       if (cinema) {
         usedCam = true;
         const k = XQRules.findK(board, turn); await closeUp(k[0], k[1], turn);
@@ -452,6 +465,10 @@
   $('flip').onclick = async () => { if (busy) return; viewSide = viewSide === 'r' ? 'b' : 'r'; lock(true); await goHome(2400); lock(false); };
   $('auto').onclick = () => { autoTurn = !autoTurn; $('auto').setAttribute('aria-pressed', autoTurn); };
   $('cinema').onclick = () => { cinema = !cinema; $('cinema').setAttribute('aria-pressed', cinema); };
+  if (window.XQSound) {
+    $('sound').setAttribute('aria-pressed', XQSound.enabled);
+    $('sound').onclick = () => { XQSound.setEnabled(!XQSound.enabled); $('sound').setAttribute('aria-pressed', XQSound.enabled); };
+  } else $('sound').hidden = true;
   let armed = null;
   $('restart').onclick = () => {
     if (busy) return;
@@ -524,6 +541,10 @@
         new Promise(r => setTimeout(r, 3000))
       ]);
     } catch (e) { /* fall back to system kai font */ }
+    if (window.XQPaper) { /* show how many characters have arrived, so a slow connection does not look frozen */
+      const show = (n, t) => { $('loading').textContent = `角色準備中… ${n} / ${t}`; };
+      XQPaper.progress.on = show; show(XQPaper.progress.done, XQPaper.progress.total);
+    }
     paper = window.XQPaper ? await XQPaper.ready : false;
     const bp = new THREE.Mesh(new THREE.PlaneGeometry(9.2, 10.2), new THREE.MeshStandardMaterial({ map: boardTexture(), roughness: 0.85 }));
     bp.rotation.x = -Math.PI / 2; bp.position.y = 0.002; bp.receiveShadow = true; classic.add(bp);

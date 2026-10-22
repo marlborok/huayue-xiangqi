@@ -25,9 +25,11 @@
     g.globalCompositeOperation = 'source-over'; g.filter = LIFT[side]; g.drawImage(img, PAD, PAD);
     return cv;
   }
+  const progress = { done: 0, total: TYPES.length * 2, on: null };   /* set progress.on(done, total) to follow the loading */
   const ready = Promise.all(['r', 'b'].flatMap(s => TYPES.map(async t => {
     const cv = prepare(await load(`assets/paper/${FILE[s]}-${t}.png`), s);
     tex[s][t] = new THREE.CanvasTexture(cv); size[s][t] = cv.width / cv.height;
+    progress.done++; if (progress.on) progress.on(progress.done, progress.total);
   }))).then(() => true, () => false);
 
   let blobM = null;
@@ -72,5 +74,5 @@
   /* world position of the top of the card (her head), so the badge can float above it wherever the card leans */
   function top(fig, out) { return fig.userData.top.getWorldPosition(out); }
 
-  window.XQPaper = { ready, figure, face, top, BADGE_Y, BADGE_UP };
+  window.XQPaper = { ready, progress, figure, face, top, BADGE_Y, BADGE_UP };
 })();

@@ -145,7 +145,7 @@
     /* scenery as paper cutouts: the watercolor drawings in assets/paper/scene-*.png standing upright and turning to face the camera.
      * size is { h } (height) or { w } (width); the other side follows the picture. They stay hidden until their picture loads.
      * o.soft: the drawing has a painted glow around it, kept translucent (no hard alpha cut, no depth write). */
-    const cards = [], loader = new THREE.TextureLoader();
+    const cards = [], loader = new THREE.TextureLoader(), LEAN_BACK = 0.6;
     function cutout(name, size, x, z, o) {
       o = o || {};
       const pivot = new THREE.Group(); pivot.position.set(x, o.y || 0, z); root.add(pivot);
@@ -160,15 +160,15 @@
         mat.map = depth.map = t; mat.needsUpdate = depth.needsUpdate = true; card.visible = true;
       });
       const r = o.landmark || 1;
-      pivot.userData = { mat, center: new THREE.Vector3(x, r * 0.5, z), radius: r };
+      pivot.userData = { mat, center: new THREE.Vector3(x, r * 0.5, z), radius: r, lean: o.lean === undefined ? LEAN_BACK : o.lean };
       cards.push(pivot);
       return pivot;
     }
-    /* face the camera, and lean back part of the way toward a high camera (base stays put) so they are not seen squashed from above */
-    const LEAN_BACK = 0.6;
+    /* face the camera, and lean back part of the way toward a high camera (base stays put) so they are not seen squashed from above;
+     * the wide low hills lean less (o.lean), otherwise they tip over into floating shapes at the top of the view */
     const face = camera => cards.forEach(c => {
       const dx = camera.position.x - c.position.x, dz = camera.position.z - c.position.z, dy = camera.position.y - c.position.y;
-      c.rotation.set(-Math.max(0, Math.atan2(dy, Math.hypot(dx, dz))) * LEAN_BACK, Math.atan2(dx, dz), 0, 'YXZ');
+      c.rotation.set(-Math.max(0, Math.atan2(dy, Math.hypot(dx, dz))) * c.userData.lean, Math.atan2(dx, dz), 0, 'YXZ');
     });
 
     /* sky dome: warm day over the flower side, dusk over the moon side, sunset where they meet */
@@ -282,7 +282,7 @@
 
     /* moon kingdom scenery: hills, lavender, glowing mushrooms, an observatory */
     const hills = [[-8.5, -7, 3.2], [8.8, -6.6, 3.6], [0, -12, 5], [-12, -2.5, 2.4], [12, -3, 2.6]]
-      .map(([x, z, r]) => cutout('scene-moon-hill', { w: r * 1.9 }, x, z, { landmark: r }));
+      .map(([x, z, r]) => cutout('scene-moon-hill', { w: r * 1.9 }, x, z, { landmark: r, lean: 0.2, y: -0.25 }));
     /* lavender fields beside the moon palace: staggered rows of painted clumps */
     [[-9, -5.6], [5.6, 9]].forEach(([x0, x1]) => {
       for (let row = 0; row < 4; row++) for (let i = 0; i < 3; i++) {

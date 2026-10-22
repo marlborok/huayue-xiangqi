@@ -57,9 +57,19 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--b
 /* bottom dock: the everyday buttons stay; everything else folds into a panel that floats over the board */
 .dock { position: relative; border-top: 2px solid var(--line); padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
 .dock .row { display: flex; gap: 8px; flex-wrap: wrap; }
-.panel { position: absolute; left: 0; right: 0; bottom: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: 12px; border-top: 2px solid var(--line); box-shadow: 0 -8px 20px rgba(74, 53, 48, .12); }
+/* settings: a paper card floating at the bottom-right corner, so the near rows of the board stay in view */
+.panel { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(100% + 8px); width: min(420px, calc(100% - 24px)); box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 2px solid var(--line); border-radius: var(--cut); box-shadow: 0 6px 18px rgba(74, 53, 48, .18); }
 .more::after { content: " ▴"; } .more[aria-expanded="true"]::after { content: " ▾"; }
 
+/* captured characters, shown on the board's near and far edges */
+.tally { position: absolute; left: 12px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; max-width: calc(100% - 24px); padding: 4px 10px 4px 8px; pointer-events: none;
+  background-color: rgba(251, 244, 230, .88); background-image: var(--grain); border: 2px solid var(--line); border-radius: var(--cut); box-shadow: 0 2px 0 rgba(107, 78, 70, .2); }
+.tally.near { bottom: 10px; } .tally.far { top: 10px; }
+.tlabel { font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--flower-ink); margin-right: 4px; }
+.tally.b .tlabel { color: var(--moon); }
+.face { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; object-position: 50% 0; border: 2px solid; background: #FFFAF0; }
+.face.r { border-color: var(--flower-ink); } .face.b { border-color: var(--moon); }
 .trays { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); font-family: var(--display); }
 .tray { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 28px; }
 /* captured pieces as little ink stamps */
@@ -94,5 +104,6 @@ button.switch[aria-pressed="true"]::before { background: radial-gradient(circle 
   .msg .line { font-size: 14px; padding: 5px 10px; }
   .msg .who { font-size: 16px; }
   .dock .row button { flex: 1 1 auto; padding: 0 12px; }
+  .face { width: 24px; height: 24px; } .tlabel { font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

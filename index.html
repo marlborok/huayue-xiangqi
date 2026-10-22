@@ -22,13 +22,11 @@
 <main class="stage">
   <canvas id="c" aria-label="3D 象棋棋盤"></canvas>
   <div class="loading" id="loading">角色準備中…</div>
+  <div class="tally far" id="tallyFar" aria-live="polite"></div>
+  <div class="tally near" id="tallyNear" aria-live="polite"></div>
 </main>
 <footer class="dock gutter">
   <div class="panel gutter" id="panel" hidden>
-    <section class="trays" aria-label="被吃掉的棋子">
-      <div class="tray" id="trayR">花之國收集到：</div>
-      <div class="tray" id="trayB">月之國收集到：</div>
-    </section>
     <div class="row" aria-label="視角">
       <button id="view">切換正俯視</button>
       <button id="flip">從對面看</button>
@@ -37,6 +35,7 @@
     <div class="row" aria-label="遊戲設定">
       <button id="cinema" class="switch" aria-pressed="true">精彩特寫</button>
       <button id="auto" class="switch" aria-pressed="false">自動轉向</button>
+      <button id="sound" class="switch" aria-pressed="true">音效</button>
       <button id="restart">重新開始</button>
     </div>
   </div>
@@ -51,6 +50,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/environments/RoomEnvironment.js"></script>
 <script src="js/look.js"></script>
+<script src="js/sound.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/figures.js"></script>
 <script src="js/paper.js"></script>
