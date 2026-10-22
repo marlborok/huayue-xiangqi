@@ -641,7 +641,7 @@
   /* win: 'r' / 'b', or null for a draw (why says what happened) */
   function showEnd(win, why) {
     const e = $('endcard');
-    $('endFace').src = `assets/paper/${win === 'b' ? 'moon' : 'flower'}-K.webp`; $('endFace').hidden = !paper || !win;
+    $('endFace').src = `assets/paper/${win === 'b' ? 'moon' : 'flower'}-K${paper && win && XQPaper.has(win, 'K-happy') ? '-happy' : ''}.webp`;   /* the winning queen cheering, when that picture exists */ $('endFace').hidden = !paper || !win;
     $('endTitle').textContent = !win ? '平手！兩國都很厲害！'
       : mode === 'ai' ? (win === humanSide ? '你贏了！好厲害！' : '電腦贏了，再挑戰一次吧！') : `${label(win)}贏了！`;
     const moves = history.length;

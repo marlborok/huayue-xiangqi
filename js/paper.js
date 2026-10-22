@@ -128,5 +128,8 @@
   /* world position of the top of the card (her head), so the badge can float above it wherever the card leans */
   function top(fig, out) { return fig.userData.top.getWorldPosition(out); }
 
-  window.XQPaper = { ready, variants, progress, figure, face, top, setLook, dissolve, BADGE_Y, BADGE_UP };
+    /* whether an extra picture such as 'K-happy' was found */
+  const has = (side, key) => !!extra[side][key];
+
+  window.XQPaper = { ready, variants, has, progress, figure, face, top, setLook, dissolve, BADGE_Y, BADGE_UP };
 })();
