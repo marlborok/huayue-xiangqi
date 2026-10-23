@@ -4,7 +4,7 @@
  * - pictures, the three.js files and the fonts: cache first (they never change under the same address), network to fill the cache.
  * One full load while online is enough to play offline afterwards. Bump VERSION only to throw the whole cache away.
  */
-const VERSION = 'huayue-v4';
+const VERSION = 'huayue-v5';
 const SHELL = ['./', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/look.js', 'js/sound.js', 'js/rules.js', 'js/ai.js', 'js/figures.js', 'js/paper.js', 'js/terrain.js', 'js/game.js', 'js/book.js', 'assets/paper/variants.json'];
 
