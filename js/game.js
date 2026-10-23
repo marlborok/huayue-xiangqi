@@ -14,7 +14,12 @@
   /* ---------- game state ---------- */
   let board, turn, history, selected = null, legalNow = [], over = false, captured = { r: [], b: [] }, busy = false;
   /* settings */
-  let topMode = false, viewSide = 'r', autoTurn = false, cinema = true;
+  let viewSide = 'r', autoTurn = false, cinema = true;
+  /* camera tilt from straight down, in radians. 好點: nearly overhead, pieces never overlap; 標準: slightly tilted, the everyday view;
+   * 立體: low enough to see the paper dolls standing tall (they overlap more and the far side gets small) */
+  const VIEWS = [['easy', '好點', 0.12], ['normal', '標準', 0.38], ['tall', '立體', 0.6]];
+  let viewMode = 'normal'; try { viewMode = localStorage.getItem('huayue.view') || 'normal'; } catch (e) { /* default */ }
+  const viewTilt = () => (VIEWS.find(v => v[0] === viewMode) || VIEWS[1])[2];
   /* how the game is played (chosen on the cover): 'ai' one child against the computer, 'same' two players sharing one view,
    * 'f2f' two players face to face with the tablet flat between them */
   let mode = 'same', humanSide = 'r', aiLevel = 1, names = { r: '', b: '' };
@@ -225,8 +230,9 @@
     /* a tall phone is limited by the board's width: keep the margin small there, or the board shrinks into a strip of scenery */
     const dist = Math.max(fitH, fitW) * 1.04 + (camera.aspect < 0.8 ? 0.3 : 1.6);
     /* paper dolls are flat cards, so they need a lower camera than the 3D figures to be seen standing */
-    const phi = topMode ? 0.002 : paper ? 0.6 : 0.25;
-    const look = new THREE.Vector3(0, 0, topMode ? 0 : 0.25 * s);
+    /* the geometric placeholders are solid, so they read fine from higher up; the flat paper dolls follow the chosen view */
+    const phi = paper ? viewTilt() : Math.min(0.25, viewTilt());
+    const look = new THREE.Vector3(0, 0, phi * 0.42 * s);   /* the lower the camera, the further across the board it looks (立體 as before) */
     const pos = new THREE.Vector3(0, dist * Math.cos(phi), dist * Math.sin(phi) * s).add(look);
     return { pos, look };
   }
@@ -802,8 +808,12 @@
   canvas.addEventListener('pointerdown', () => { if (!$('panel').hidden) setPanel(false); });
 
   $('home').onclick = async () => { if (busy) return; lock(true); await goHome(1200); lock(false); };
+  const showView = () => { $('view').textContent = '視角：' + (VIEWS.find(v => v[0] === viewMode) || VIEWS[1])[1]; };
+  showView();
   $('view').onclick = async () => {
-    if (busy) return; topMode = !topMode; $('view').textContent = topMode ? '切換近俯視' : '切換正俯視';
+    if (busy) return;
+    const i = VIEWS.findIndex(v => v[0] === viewMode); viewMode = VIEWS[(i + 1) % VIEWS.length][0]; showView();
+    try { localStorage.setItem('huayue.view', viewMode); } catch (e) { /* not remembered, still applies */ }
     lock(true); await goHome(1400); lock(false);
   };
   $('flip').onclick = async () => { if (busy) return; viewSide = viewSide === 'r' ? 'b' : 'r'; lock(true); await goHome(2400); lock(false); };
@@ -1029,6 +1039,7 @@
     tick(ms) { const t0 = performance.now(); for (let k = 1; k <= Math.ceil(ms / 50); k++) frame(t0 + k * 50 + 100000); },
     select(f, r) { select(f, r); },
     /* tap the middle of every visible card on screen and report which piece each tap selected */
+    setView(m) { viewMode = m; showView(); const h = homeView(viewSide); camera.position.copy(h.pos); target.copy(h.look); camera.lookAt(target); },
     tapAll() {
       const rc = canvas.getBoundingClientRect(), out = { ok: 0, bad: [] };
       for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
