@@ -43,7 +43,7 @@
 
   /* watercolor light: a strong soft fill with a lavender ground colour, so shadows come out pale and tinted rather than grey,
    * and a weaker sun whose low-resolution shadow map gives blurred, gentle edges */
-  scene.add(new THREE.HemisphereLight('#FFF6EE', look ? '#B4A6D4' : '#C99A86', look ? 0.62 : 0.8));
+  const hemi = new THREE.HemisphereLight('#FFF6EE', look ? '#B4A6D4' : '#C99A86', look ? 0.62 : 0.8); scene.add(hemi);
   const sun = new THREE.DirectionalLight('#FFF4E8', look ? 0.5 : 0.7); sun.position.set(5, 14, 7); sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); scene.add(sun);
   /* two looks for the board: the classic wooden board on a table, or the terrain (js/terrain.js) */
@@ -359,7 +359,7 @@
     }
   }
   function updateTurn() {
-    updateHelp();
+    updateHelp(); refreshMarks(); setDay();
     $('turn').classList.toggle('moon', turn === 'b');
     $('turnText').textContent = mode === 'ai' ? (turn === humanSide ? `輪到你了（${KINGDOM[turn]}）` : `電腦思考中…（${KINGDOM[turn]}）`) : `${label(turn)}的回合`;
     showTurnGlow();
@@ -410,7 +410,82 @@
   function updateCheck() {
     if (!over && XQRules.inCheck(board, turn)) { const k = XQRules.findK(board, turn); checkRing.position.set(wx(k[0]), 0.02, wz(k[1])); checkRing.visible = true; }
     else checkRing.visible = false;
+    cloudSide = checkRing.visible ? turn : null;
   }
+
+  /* ---------- the board remembers the game ----------
+   * Footprints along the last few moves (petals for the flower kingdom, little stars for the moon), fading as they age,
+   * and a small blossom or star left on every square where someone was captured. Both are rebuilt from the history
+   * after every move, so undo, a resumed game and a new game are always right. */
+  const decalTex = {};
+  ['r', 'b'].forEach(sd => {
+    decalTex[sd] = {
+      print: markTex(g => {
+        g.fillStyle = sd === 'r' ? '#F2A0B4' : '#F4D27A';
+        if (sd === 'r') { for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; g.beginPath(); g.ellipse(64 + Math.cos(a) * 22, 64 + Math.sin(a) * 22, 20, 13, a, 0, 7); g.fill(); } }
+        else { g.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? 18 : 46; g.lineTo(64 + Math.cos(a) * rr, 64 + Math.sin(a) * rr); } g.closePath(); g.fill(); }
+      }),
+      bloom: markTex(g => {
+        const c1 = sd === 'r' ? '#F7B6C6' : '#C9BEF2', c2 = sd === 'r' ? '#F7D27A' : '#FFF3C4';
+        for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; g.fillStyle = c1; g.beginPath(); g.arc(64 + Math.cos(a) * 26, 64 + Math.sin(a) * 26, 20, 0, 7); g.fill(); }
+        g.fillStyle = c2; g.beginPath(); g.arc(64, 64, 15, 0, 7); g.fill();
+      })
+    };
+  });
+  const decals = new THREE.Group(); scene.add(decals);
+  const decal = (tex, x, z, size, opacity, rot) => {
+    const m = new THREE.Mesh(quad(size), markMat(tex)); m.material.opacity = opacity;
+    m.rotation.set(-Math.PI / 2, 0, rot || 0); m.position.set(x, 0.022, z); m.renderOrder = 1; decals.add(m);
+  };
+  function moveList() {   /* every move played, oldest first, with whether it captured */
+    const out = [], total = c => c.r.length + c.b.length;
+    for (let k = 1; k <= history.length; k++) {
+      const mv = k < history.length ? history[k].last : lastMove, after = k < history.length ? history[k].captured : captured;
+      if (mv) out.push({ ...mv, took: total(after) > total(history[k - 1].captured) });
+    }
+    return out;
+  }
+  function refreshMarks() {
+    decals.children.forEach(m => { m.material.dispose(); m.geometry.dispose(); }); decals.clear();
+    if (!board) return;
+    const moves = moveList();
+    moves.forEach(m => { if (m.took) decal(decalTex[m.side].bloom, wx(m.to[0]), wz(m.to[1]), 0.36, 0.75, m.to[0] * 1.7); });
+    moves.slice(-3).forEach((m, i, arr) => {
+      const age = arr.length - 1 - i, op = [0.7, 0.42, 0.2][age];
+      const x0 = wx(m.from[0]), z0 = wz(m.from[1]), x1 = wx(m.to[0]), z1 = wz(m.to[1]), len = Math.hypot(x1 - x0, z1 - z0), n = Math.min(6, Math.max(2, Math.round(len / 0.7)));   /* a few prints, even for a long rook run */
+      for (let j = 1; j < n; j++) { const t = j / n; decal(decalTex[m.side].print, x0 + (x1 - x0) * t + Math.sin(j * 2.1) * 0.05, z0 + (z1 - z0) * t, 0.2, op, j); }
+    });
+  }
+
+  /* ---------- the day passes as the game goes on: a warm morning at the opening, bright noon in the middle game,
+   * a golden evening for a long endgame. Changes ease in over a few seconds. ---------- */
+  const DAY = [ /* [plies, sun colour, sun strength, sky colour] */
+    [0, '#FFE2C8', 0.46, '#FFF1E2'], [40, '#FFF4E8', 0.52, '#FFF6EE'], [90, '#FFC796', 0.44, '#FFE6D2'], [140, '#F7A982', 0.36, '#F6D9CF']];
+  const dayNow = { sun: new THREE.Color(), sky: new THREE.Color(), k: 0.5 }, dayWant = { sun: new THREE.Color('#FFF4E8'), sky: new THREE.Color('#FFF6EE'), k: 0.5 };
+  const asLight = (c, hex) => { c.set(hex); if (look) c.convertSRGBToLinear(); return c; };
+  function setDay() {
+    const n = history ? history.length : 0;
+    let i = 0; while (i < DAY.length - 2 && n > DAY[i + 1][0]) i++;
+    const [a, b] = [DAY[i], DAY[i + 1]], t = Math.min(1, Math.max(0, (n - a[0]) / (b[0] - a[0])));
+    const ca = new THREE.Color(), cb = new THREE.Color();
+    dayWant.sun.copy(asLight(ca, a[1])).lerp(asLight(cb, b[1]), t);
+    dayWant.sky.copy(asLight(ca, a[3])).lerp(asLight(cb, b[3]), t);
+    dayWant.k = a[2] + (b[2] - a[2]) * t;
+  }
+  let dayInit = false;
+
+  /* ---------- a cloud passes over the side whose queen is in check ---------- */
+  let cloudSide = null;
+  const cloudTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const g = cv.getContext('2d');
+    for (let i = 0; i < 14; i++) {
+      const x = 40 + Math.random() * 176, y = 40 + Math.random() * 48, r = 30 + Math.random() * 30, gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(70,60,95,0.30)'); gr.addColorStop(1, 'rgba(70,60,95,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+    }
+    const t = new THREE.CanvasTexture(cv); if (look) t.encoding = THREE.sRGBEncoding; return t;
+  })();
+  const cloud = new THREE.Mesh(new THREE.PlaneGeometry(10, 5.5), markMat(cloudTex));
+  cloud.rotation.x = -Math.PI / 2; cloud.position.y = 0.04; cloud.renderOrder = 1; cloud.material.opacity = 0; scene.add(cloud);
   const lockIds = ['undo', 'home', 'view', 'flip', 'auto', 'cinema', 'restart', 'toCover'];
   function lock(b) { busy = b; lockIds.forEach(id => { $(id).disabled = b; }); document.querySelectorAll('.seat button[data-act="undo"]').forEach(x => { x.disabled = b; }); }
 
@@ -870,6 +945,15 @@
     const pulse = 1 + Math.sin(now / 220) * 0.08; markers.forEach(m => m.scale.setScalar(pulse));
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
     turnGlow.material.opacity = 0.75 + Math.sin(now / 700) * 0.25;
+    if (!dayInit) { dayNow.sun.copy(dayWant.sun); dayNow.sky.copy(dayWant.sky); dayNow.k = dayWant.k; dayInit = true; }
+    const ease = reduceMotion ? 1 : 0.02;
+    dayNow.sun.lerp(dayWant.sun, ease); dayNow.sky.lerp(dayWant.sky, ease); dayNow.k += (dayWant.k - dayNow.k) * ease;
+    if (look) { sun.color.copy(dayNow.sun); sun.intensity = dayNow.k; hemi.color.copy(dayNow.sky); }
+    const cw = cloudSide && !over ? 1 : 0;
+    cloud.material.opacity += (cw - cloud.material.opacity) * (reduceMotion ? 1 : 0.04);
+    cloud.visible = cloud.material.opacity > 0.01;
+    if (cloudSide) cloud.position.z = cloudSide === 'r' ? 2.7 : -2.7;
+    cloud.position.x = Math.sin(now / 4000) * 0.6;   /* drifting slowly */
     if (paper && (now | 0) % 300 < 17) updateMoods();   /* happy faces wear off after a while */
     if (terrain && terrain.root.visible) terrain.update(now / 1000, camera, target);
     if (!camAnim && !f2f()) controls.update();
@@ -917,6 +1001,7 @@
     select(f, r) { select(f, r); },
     looks: () => Object.values(vis).filter(v => v.outer.visible && v.fig.userData.look && v.fig.userData.look !== v.fig.userData.t).map(v => v.side + v.fig.userData.look),
     story: () => story.map(l => l.text),
+    scene: () => ({ decals: decals.children.length, cloud: +cloud.material.opacity.toFixed(2), cloudSide, sun: '#' + dayWant.sun.getHexString(), sunK: +dayWant.k.toFixed(2) }),
     threats: () => Object.entries(threats).map(([id, by]) => [Object.values(vis)[id] ? id : id, nm(by)]),
     state: () => ({ turn, over, mode, history: history.length, board: board.map(row => row.map(p => p ? p.side + p.t : '')) })
   };
