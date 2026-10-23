@@ -727,7 +727,27 @@
   }
   let lastStory = null;
 
-  /* ---------- input: pick by grid square, not by model, so any model size taps the same ---------- */
+  /* ---------- input: the picture under the finger first, then the grid square under it ----------
+   * Each paper doll covers a screen rectangle from her feet up past her badge, as wide as her card; when several
+   * overlap, the one nearest the camera is the one in front, so that is the one picked. Returns [file, rank] or null. */
+  const pv = new THREE.Vector3();
+  const toScreen = (v, rc) => { pv.copy(v).project(camera); return [(pv.x + 1) / 2 * rc.width, (1 - pv.y) / 2 * rc.height, pv.z]; };
+  function pickCard(px, py, rc) {
+    let best = null, bestD = Infinity;
+    for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
+      const p = board[r][f]; if (!p) continue;
+      const v = vis[p.id]; if (!v || !v.outer.visible) continue;
+      const foot = toScreen(v.outer.getWorldPosition(tmp3), rc), head = toScreen(v.halo.getWorldPosition(tmp3), rc);
+      const span = Math.hypot(head[0] - foot[0], head[1] - foot[1]), hw = Math.max(18, span * 0.32);   /* a card is about two thirds as wide as tall */
+      const top = Math.min(foot[1], head[1]) - hw * 0.5, bot = Math.max(foot[1], head[1]) + hw * 0.35;
+      const cx = (foot[0] + head[0]) / 2;
+      if (px < cx - hw || px > cx + hw || py < top || py > bot) continue;
+      const d = camera.position.distanceTo(v.outer.getWorldPosition(tmp3));
+      if (d < bestD) { bestD = d; best = [f, r]; }
+    }
+    return best;
+  }
+  const tmp3 = new THREE.Vector3();
   let down = null;
   const ray = new THREE.Raycaster(), pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.4), hit = new THREE.Vector3();
   canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
@@ -735,11 +755,18 @@
     if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null;
     if (moved > 8 || busy || over || (mode === 'ai' && turn !== humanSide)) return;
-    const rc = canvas.getBoundingClientRect();
-    ray.setFromCamera({ x: ((e.clientX - rc.left) / rc.width) * 2 - 1, y: -((e.clientY - rc.top) / rc.height) * 2 + 1 }, camera);
-    if (!ray.ray.intersectPlane(pickPlane, hit)) return;
-    const f = Math.round(hit.x + 4), r = Math.round(4.5 - hit.z);
-    if (!XQRules.inB(f, r) || Math.hypot(hit.x - wx(f), hit.z - wz(r)) > 0.5) { deselect(); return; }
+    const rc = canvas.getBoundingClientRect(), px = e.clientX - rc.left, py = e.clientY - rc.top;
+    ray.setFromCamera({ x: (px / rc.width) * 2 - 1, y: -(py / rc.height) * 2 + 1 }, camera);
+    const onGround = ray.ray.intersectPlane(pickPlane, hit);
+    let f = onGround ? Math.round(hit.x + 4) : -1, r = onGround ? Math.round(4.5 - hit.z) : -1;
+    const gd = onGround && XQRules.inB(f, r) ? Math.hypot(hit.x - wx(f), hit.z - wz(r)) : 9;
+    /* a gold move dot right under the finger wins: moving to an empty point must not be stolen by a picture standing nearby */
+    const onDot = selected && gd < 0.38 && legalNow.some(([x, y]) => x === f && y === r) && !board[r][f];
+    /* otherwise the picture the child actually touched: a standing, leaning card covers the square behind it,
+     * so going by the ground alone picks the wrong piece when they crowd together */
+    const card = !onDot && paper ? pickCard(px, py, rc) : null;
+    if (card) { f = card[0]; r = card[1]; }
+    else if (!XQRules.inB(f, r) || gd > 0.58) { deselect(); return; }
     const q = board[r][f];
     if (selected && legalNow.some(([x, y]) => x === f && y === r)) { doMove(f, r); return; }
     if (q && q.side === turn) { if (selected && selected.p.id === q.id) deselect(); else select(f, r); return; }
@@ -918,7 +945,8 @@
   }
   new ResizeObserver(resize).observe(canvas);
 
-  function loop(now) {
+  function loop(now) { frame(now); requestAnimationFrame(loop); }
+  function frame(now) {
     for (let i = tweens.length - 1; i >= 0; i--) {
       const x = tweens[i], t = Math.min(1, (now - x.t0) / x.ms);
       x.fn(t); if (t >= 1) { tweens.splice(i, 1); x.res(); }
@@ -959,7 +987,6 @@
     if (!camAnim && !f2f()) controls.update();
     if (look) XQLook.manage(scene);   /* new objects (particles, markers, the other board look) get converted before they are drawn */
     renderer.render(scene, camera);
-    requestAnimationFrame(loop);
   }
 
   async function start() {
@@ -998,7 +1025,23 @@
       deselect(); sync(); updateTurn(); updateTrays(); updateCheck(); $('endcard').hidden = true;
     },
     async move(f, r, x, y) { select(f, r, true); await doMove(x, y); },
+    /* run frames by hand, e.g. when the page is in a hidden pane and the browser has paused animation */
+    tick(ms) { const t0 = performance.now(); for (let k = 1; k <= Math.ceil(ms / 50); k++) frame(t0 + k * 50 + 100000); },
     select(f, r) { select(f, r); },
+    /* tap the middle of every visible card on screen and report which piece each tap selected */
+    tapAll() {
+      const rc = canvas.getBoundingClientRect(), out = { ok: 0, bad: [] };
+      for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) {
+        const p = board[r][f]; if (!p || p.side !== turn) continue;
+        const v = vis[p.id], a = toScreen(v.outer.getWorldPosition(tmp3), rc), b = toScreen(v.halo.getWorldPosition(tmp3), rc);
+        const x = rc.left + (a[0] + b[0]) / 2, y = rc.top + a[1] * 0.4 + b[1] * 0.6;   /* her chest, well above the ground point */
+        deselect();
+        canvas.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, bubbles: true }));
+        canvas.dispatchEvent(new PointerEvent('pointerup', { clientX: x, clientY: y, bubbles: true }));
+        if (selected && selected.f === f && selected.r === r) out.ok++; else out.bad.push(nm(p) + (selected ? '→' + nm(selected.p) : '→none'));
+      }
+      deselect(); return out;
+    },
     looks: () => Object.values(vis).filter(v => v.outer.visible && v.fig.userData.look && v.fig.userData.look !== v.fig.userData.t).map(v => v.side + v.fig.userData.look),
     story: () => story.map(l => l.text),
     scene: () => ({ decals: decals.children.length, cloud: +cloud.material.opacity.toFixed(2), cloudSide, sun: '#' + dayWant.sun.getHexString(), sunK: +dayWant.k.toFixed(2) }),
