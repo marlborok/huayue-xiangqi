@@ -263,11 +263,14 @@
     const water = new THREE.Mesh(new THREE.PlaneGeometry(60, BANK * 2), new THREE.MeshStandardMaterial({ map: wt, transparent: true, opacity: 0.9, roughness: 0.6 }));
     water.rotation.x = -Math.PI / 2; add(water, 0, -0.1, 0, false);
     anim.push(t => { wt.offset.x = t * 0.04; wt.offset.y = Math.sin(t * 0.6) * 0.03; });
-    if (focus) {   /* 楚河漢界 written across the quiet river */
+    if (focus) {   /* the two kingdoms' names across the quiet river (in place of 楚河漢界) */
       const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 96; const g = cv.getContext('2d');
-      g.font = '64px "LXGW WenKai TC", "Noto Sans TC", serif'; g.fillStyle = 'rgba(70,90,110,0.7)'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText('楚　河', 260, 50); g.fillText('漢　界', 764, 50);
+      /* the web font arrives in pieces per character, so ask for exactly these characters and paint again once they are in */
+      const FONT = '64px "LXGW WenKai TC", "Noto Sans TC", serif', WORDS = [['花之國', 260, '#C0607A'], ['月之國', 764, '#5A5890']];
+      const paint = () => { g.clearRect(0, 0, 1024, 96); g.font = FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 0.75;
+        WORDS.forEach(([w, x, c]) => { g.fillStyle = c; g.fillText(w.split('').join('　'), x, 50); }); g.globalAlpha = 1; tt.needsUpdate = true; };
       const tt = new THREE.CanvasTexture(cv); if (window.XQLook) tt.encoding = THREE.sRGBEncoding;
+      paint(); if (document.fonts) document.fonts.load(FONT, WORDS.map(w => w[0]).join('')).then(paint, () => {});
       const label = new THREE.Mesh(new THREE.PlaneGeometry(8, 0.75), new THREE.MeshBasicMaterial({ map: tt, transparent: true, depthWrite: false, toneMapped: false }));
       label.rotation.x = -Math.PI / 2; add(label, 0, -0.08, 0, false);
     }
