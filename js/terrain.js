@@ -266,7 +266,7 @@
     if (focus) {   /* the two kingdoms' names across the quiet river (in place of 楚河漢界) */
       const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 96; const g = cv.getContext('2d');
       /* the web font arrives in pieces per character, so ask for exactly these characters and paint again once they are in */
-      const FONT = '64px "LXGW WenKai TC", "Noto Sans TC", serif', WORDS = [['花之國', 260, '#C0607A'], ['月之國', 764, '#5A5890']];
+      const FONT = '64px "LXGW WenKai TC", "Noto Sans TC", serif', WORDS = [['櫻花河', 260, '#C0607A'], ['月光流', 764, '#5A5890']];
       const paint = () => { g.clearRect(0, 0, 1024, 96); g.font = FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 0.75;
         WORDS.forEach(([w, x, c]) => { g.fillStyle = c; g.fillText(w.split('').join('　'), x, 50); }); g.globalAlpha = 1; tt.needsUpdate = true; };
       const tt = new THREE.CanvasTexture(cv); if (window.XQLook) tt.encoding = THREE.sRGBEncoding;
