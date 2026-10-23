@@ -57,13 +57,18 @@
   table.rotation.x = -Math.PI / 2; table.position.y = -0.46; table.receiveShadow = true; classic.add(table);
   const base = new THREE.Mesh(new THREE.BoxGeometry(9.9, 0.45, 10.9), new THREE.MeshStandardMaterial({ color: '#B9783F', roughness: 0.8 }));
   base.position.y = -0.225; base.receiveShadow = true; classic.add(base);
-  let terrain = null, terrainOn = !!window.XQTerrain;
+  /* three board styles: 花月專注 (default: the land made quiet so the pieces stand out), 花月大地 (the full painted land), 經典棋盤 */
+  const STYLES = [['focus', '花月專注'], ['full', '花月大地'], ['classic', '經典棋盤']];
+  let boardStyle = 'focus';
+  try { const v = localStorage.getItem('huayue.board'); if (STYLES.some(x => x[0] === v)) boardStyle = v; } catch (e) {}
+  if (!window.XQTerrain) boardStyle = 'classic';
+  const terrains = {}; let terrain = null;
   function applyLook() {
-    if (terrainOn && !terrain && window.XQTerrain) terrain = XQTerrain.build(scene, aniso);
-    const on = terrainOn && !!terrain;
-    classic.visible = !on; if (terrain) terrain.root.visible = on;
-    scene.fog = on ? terrain.fog : null;
-    const btn = $('look'); if (btn) { btn.textContent = '地形：' + (on ? '花月大地' : '經典棋盤'); btn.setAttribute('aria-pressed', on); }
+    if (boardStyle !== 'classic' && !terrains[boardStyle] && window.XQTerrain) terrains[boardStyle] = XQTerrain.build(scene, aniso, { focus: boardStyle === 'focus' });
+    terrain = terrains[boardStyle] || null;
+    classic.visible = !terrain; Object.values(terrains).forEach(t => { t.root.visible = t === terrain; });
+    scene.fog = terrain ? terrain.fog : null;
+    const btn = $('look'); if (btn) { btn.textContent = '地形：' + STYLES.find(x => x[0] === boardStyle)[1]; btn.setAttribute('aria-pressed', !!terrain); }
   }
 
   const wx = f => f - 4, wz = r => 4.5 - r;
@@ -226,7 +231,8 @@
   function homeView(side) {
     if (f2f()) return f2fView();
     const s = side === 'r' ? 1 : -1, half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const fitH = 5.2 / half, fitW = 5.4 / (half * camera.aspect);
+    /* paper dolls stand up past the near edge of the board (badges above them), most of all with the camera high: leave room */
+    const fitH = (paper ? 5.2 + 0.7 * (1 - viewTilt()) : 5.2) / half, fitW = 5.4 / (half * camera.aspect);
     /* a tall phone is limited by the board's width: keep the margin small there, or the board shrinks into a strip of scenery */
     const dist = Math.max(fitH, fitW) * 1.04 + (camera.aspect < 0.8 ? 0.3 : 1.6);
     /* paper dolls are flat cards, so they need a lower camera than the 3D figures to be seen standing */
@@ -804,7 +810,12 @@
     $('more').textContent = open ? '收起設定' : '更多設定';
   }
   $('more').onclick = () => setPanel($('panel').hidden);
-  if ($('look')) $('look').onclick = () => { terrainOn = !terrainOn; applyLook(); };
+  if ($('look')) $('look').onclick = () => {
+    if (!window.XQTerrain) return;
+    boardStyle = STYLES[(STYLES.findIndex(x => x[0] === boardStyle) + 1) % STYLES.length][0];
+    try { localStorage.setItem('huayue.board', boardStyle); } catch (e) {}
+    applyLook();
+  };
   canvas.addEventListener('pointerdown', () => { if (!$('panel').hidden) setPanel(false); });
 
   $('home').onclick = async () => { if (busy) return; lock(true); await goHome(1200); lock(false); };
@@ -965,8 +976,11 @@
     Object.values(vis).forEach(v => {
       if (!v.outer.visible) return;
       if (paper) { /* paper dolls lean back toward the camera (face to face: toward their own player); keep the badge above her head */
-        if (f2f()) { v.outer.getWorldPosition(tmp); seatEye.position.set(tmp.x, tmp.y + 10, tmp.z + (v.side === 'r' ? 4 : -4)); }
-        XQPaper.face(v.fig, f2f() ? seatEye : camera, reduceMotion ? 0 : now / 1000, v.side === turn && !over ? 1 : 0.35);
+        /* a nearly overhead camera (好點) would spin the cards to odd angles, so there they all face the near edge, like f2f does per player */
+        const overhead = !f2f() && viewTilt() < 0.25;
+        if (f2f() || overhead) { v.outer.getWorldPosition(tmp); seatEye.position.set(tmp.x, tmp.y + 10, tmp.z + ((f2f() ? v.side : viewSide) === 'r' ? 4 : -4)); }
+        /* only the side to move sways, and gently: the waiting side keeps still */
+        XQPaper.face(v.fig, f2f() || overhead ? seatEye : camera, reduceMotion ? 0 : now / 1000, v.side === turn && !over ? 0.6 : 0);
         v.halo.parent.worldToLocal(XQPaper.top(v.fig, tmp)); tmp.y += XQPaper.BADGE_UP;
         if (f2f()) { tmp.z -= 0.42; tmp.y -= 0.2; }   /* seen from straight above, float the badge past her head instead of on it */
         v.halo.position.copy(tmp); v.stem.position.set(tmp.x, tmp.y - 0.1, tmp.z);
@@ -982,7 +996,7 @@
     });
     const pulse = 1 + Math.sin(now / 220) * 0.08; markers.forEach(m => m.scale.setScalar(pulse));
     if (checkRing.visible) checkRing.scale.setScalar(1 + Math.sin(now / 150) * 0.12);
-    turnGlow.material.opacity = 0.75 + Math.sin(now / 700) * 0.25;
+    turnGlow.material.opacity = 0.8;   /* steady, not pulsing: motion pulls the eye away from the pieces */
     if (!dayInit) { dayNow.sun.copy(dayWant.sun); dayNow.sky.copy(dayWant.sky); dayNow.k = dayWant.k; dayInit = true; }
     const ease = reduceMotion ? 1 : 0.02;
     dayNow.sun.lerp(dayWant.sun, ease); dayNow.sky.lerp(dayWant.sky, ease); dayNow.k += (dayWant.k - dayNow.k) * ease;

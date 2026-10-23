@@ -46,7 +46,7 @@
 
   /* one textured half of the play area, painted on a canvas: a meadow wash, grey road washes on the grid lines
    * with a pencil line down their middle, soft round stones on the points */
-  function halfTexture(side, aniso) {
+  function halfTexture(side, aniso, focus) {
     const C = SIDE[side];
     const W = 9.2 * PX, H = (EDGE - BANK) * PX;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
@@ -55,6 +55,8 @@
     const X = x => (x + 4.6) * PX, Y = z => (z - zTop) * PX;
     const wx = f => f - 4, wz = r => 4.5 - r;
     const ranks = side === 'r' ? [0, 1, 2, 3, 4] : [5, 6, 7, 8, 9];
+
+    if (focus) return focusTexture(g, W, H, X, Y, wx, wz, ranks, side, aniso, cv);
 
     /* meadow: paper, then layered translucent washes of three greens (or lavenders) */
     g.fillStyle = C.paper; g.fillRect(0, 0, W, H);
@@ -111,6 +113,24 @@
     const t = new THREE.CanvasTexture(cv); t.anisotropy = aniso; return t;
   }
 
+  /* 花月專注: the same land made quiet for playing. Clean pale paper with a faint wash of the kingdom's colour,
+   * a thin dark ink grid like the classic board, and nothing on the points, so the eye goes to the pieces. */
+  const FOCUS = { r: { paper: '#FCF3EE', wash: '#F6D6DD', ink: '#6B4A4F' }, b: { paper: '#F2F0F8', wash: '#D9D5EF', ink: '#4A4766' } };
+  function focusTexture(g, W, H, X, Y, wx, wz, ranks, side, aniso, cv) {
+    const F = FOCUS[side];
+    g.fillStyle = F.paper; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 26; i++) wash(g, rnd(0, W), rnd(0, H), rnd(90, 180), F.wash, rnd(0.08, 0.16));
+    g.strokeStyle = F.ink; g.lineCap = 'round'; g.globalAlpha = 0.85; g.lineWidth = 3.5;
+    const line = (a, b, c, d) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); };
+    const zs = ranks.map(wz).concat(side === 'r' ? BANK : -BANK);
+    ranks.forEach(r => line(X(wx(0)), Y(wz(r)), X(wx(8)), Y(wz(r))));
+    for (let f = 0; f < 9; f++) line(X(wx(f)), Y(Math.min(...zs)), X(wx(f)), Y(Math.max(...zs)));
+    const pr = side === 'r' ? [0, 2] : [7, 9];
+    line(X(wx(3)), Y(wz(pr[0])), X(wx(5)), Y(wz(pr[1]))); line(X(wx(5)), Y(wz(pr[0])), X(wx(3)), Y(wz(pr[1])));
+    g.globalAlpha = 1; grain(g, W, H, 3000);
+    const t = new THREE.CanvasTexture(cv); t.anisotropy = aniso; return t;
+  }
+
   /* the river: a blue wash with lighter streaks left as white paper, tiled along the river */
   function waterTexture() {
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
@@ -136,7 +156,8 @@
     const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 3); return t;
   }
 
-  function build(scene, aniso) {
+  function build(scene, aniso, opts) {
+    const focus = !!(opts && opts.focus), FADE = focus ? 0.5 : 1;   /* 專注: the scenery outside the board stays, faded back */
     const root = new THREE.Group();
     const anim = [];
     const add = (m, x, y, z, shadow) => { m.position.set(x, y, z); if (shadow !== false) { m.castShadow = true; m.receiveShadow = true; } root.add(m); return m; };
@@ -149,7 +170,7 @@
     function cutout(name, size, x, z, o) {
       o = o || {};
       const pivot = new THREE.Group(); pivot.position.set(x, o.y || 0, z); root.add(pivot);
-      const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: o.soft ? 0.02 : 0.35, depthWrite: !o.soft, side: THREE.DoubleSide, toneMapped: false });
+      const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: o.soft ? 0.02 : 0.35 * FADE, depthWrite: !o.soft && !focus, opacity: FADE, side: THREE.DoubleSide, toneMapped: false });
       const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.35 });
       const card = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); card.castShadow = true; card.customDepthMaterial = depth; card.visible = false;
       pivot.add(card);
@@ -232,7 +253,7 @@
       const s = side === 'r' ? 1 : -1;
       const big = new THREE.Mesh(new THREE.PlaneGeometry(60, 30), new THREE.MeshStandardMaterial({ map: groundTexture(side), roughness: 1 }));
       big.rotation.x = -Math.PI / 2; add(big, 0, -0.01, s * (BANK + 15), false); big.receiveShadow = true;
-      const play = new THREE.Mesh(new THREE.PlaneGeometry(9.2, EDGE - BANK), new THREE.MeshStandardMaterial({ map: halfTexture(side, aniso), roughness: 1 }));
+      const play = new THREE.Mesh(new THREE.PlaneGeometry(9.2, EDGE - BANK), new THREE.MeshStandardMaterial({ map: halfTexture(side, aniso, focus), roughness: 1 }));
       play.rotation.x = -Math.PI / 2; add(play, 0, 0.002, s * (BANK + EDGE) / 2, false); play.receiveShadow = true;
     });
 
@@ -242,11 +263,19 @@
     const water = new THREE.Mesh(new THREE.PlaneGeometry(60, BANK * 2), new THREE.MeshStandardMaterial({ map: wt, transparent: true, opacity: 0.9, roughness: 0.6 }));
     water.rotation.x = -Math.PI / 2; add(water, 0, -0.1, 0, false);
     anim.push(t => { wt.offset.x = t * 0.04; wt.offset.y = Math.sin(t * 0.6) * 0.03; });
+    if (focus) {   /* 楚河漢界 written across the quiet river */
+      const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 96; const g = cv.getContext('2d');
+      g.font = '64px "LXGW WenKai TC", "Noto Sans TC", serif'; g.fillStyle = 'rgba(70,90,110,0.7)'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('楚　河', 260, 50); g.fillText('漢　界', 764, 50);
+      const tt = new THREE.CanvasTexture(cv); if (window.XQLook) tt.encoding = THREE.sRGBEncoding;
+      const label = new THREE.Mesh(new THREE.PlaneGeometry(8, 0.75), new THREE.MeshBasicMaterial({ map: tt, transparent: true, depthWrite: false, toneMapped: false }));
+      label.rotation.x = -Math.PI / 2; add(label, 0, -0.08, 0, false);
+    }
     [['r', 1, '#C9A880'], ['b', -1, '#8C84B4']].forEach(([, s, col]) => add(new THREE.Mesh(new THREE.BoxGeometry(60, 0.24, 0.05), M(col)), 0, -0.11, s * BANK));
 
     /* ford stones on every file: any piece can cross on its own file */
     const stoneMat = M('#F1EADD');
-    for (let f = 0; f < 9; f++) [-0.14, 0.14].forEach(z => {
+    if (!focus) for (let f = 0; f < 9; f++) [-0.14, 0.14].forEach(z => {
       const st = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.08, 14), stoneMat);
       st.scale.set(rand(0.9, 1.2), 1, rand(0.85, 1.1)); add(st, f - 4 + rand(-0.04, 0.04), -0.07, z);
     });
@@ -301,15 +330,15 @@
     /* drifting petals over the meadow, fireflies over the moon land */
     const petals = [], petalGeo = new THREE.PlaneGeometry(0.09, 0.07);
     const petalMat = new THREE.MeshBasicMaterial({ color: '#F7C2CF', side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-    for (let i = 0; i < 28; i++) { const p = new THREE.Mesh(petalGeo, petalMat); p.position.set(rand(-9, 9), rand(0, 5), rand(0.6, 10)); p.userData = { s: rand(0.25, 0.5), w: rand(0, 6) }; root.add(p); petals.push(p); }
+    for (let i = 0; i < 14; i++) { const p = new THREE.Mesh(petalGeo, petalMat); p.position.set(rand(-9, 9), rand(0, 5), rand(0.6, 10)); p.userData = { s: rand(0.25, 0.5), w: rand(0, 6) }; root.add(p); petals.push(p); }
     const flies = [], flyMat = new THREE.MeshBasicMaterial({ color: '#FFF3A8', transparent: true, opacity: 0.9 });
-    for (let i = 0; i < 26; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), flyMat); const b = new THREE.Vector3(rand(-9, 9), rand(0.4, 2.2), rand(-10, -0.8)); if (Math.abs(b.x) < 4.9 && b.z > -5.3) b.x = (b.x < 0 ? -1 : 1) * rand(5, 9); f.userData = { b, w: rand(0, 6) }; root.add(f); flies.push(f); }
+    for (let i = 0; i < 13; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), flyMat); const b = new THREE.Vector3(rand(-9, 9), rand(0.4, 2.2), rand(-10, -0.8)); if (Math.abs(b.x) < 4.9 && b.z > -5.3) b.x = (b.x < 0 ? -1 : 1) * rand(5, 9); f.userData = { b, w: rand(0, 6) }; root.add(f); flies.push(f); }
     let last = 0;
     anim.push(t => {
       const dt = Math.min(0.05, t - last); last = t;
-      petals.forEach(p => { const u = p.userData; p.position.y -= u.s * dt; p.position.x += Math.sin(t + u.w) * 0.15 * dt; p.rotation.x += dt * 1.5; p.rotation.y += dt; if (p.position.y < 0) p.position.y = 5; });
-      flies.forEach(f => { const u = f.userData; f.position.set(u.b.x + Math.sin(t * 0.7 + u.w) * 0.4, u.b.y + Math.sin(t * 1.1 + u.w) * 0.25, u.b.z + Math.cos(t * 0.5 + u.w) * 0.4); });
-      flyMat.opacity = 0.6 + Math.sin(t * 3) * 0.3;
+      petals.forEach(p => { const u = p.userData; p.position.y -= u.s * 0.6 * dt; p.position.x += Math.sin(t * 0.6 + u.w) * 0.1 * dt; p.rotation.x += dt * 0.8; p.rotation.y += dt * 0.5; if (p.position.y < 0) p.position.y = 5; });
+      flies.forEach(f => { const u = f.userData; f.position.set(u.b.x + Math.sin(t * 0.4 + u.w) * 0.4, u.b.y + Math.sin(t * 0.6 + u.w) * 0.25, u.b.z + Math.cos(t * 0.3 + u.w) * 0.4); });
+      flyMat.opacity = 0.65 + Math.sin(t * 1.2) * 0.2;
     });
 
     /* landmarks that can stand between a low camera and the board: they fade out while they block the view */
@@ -322,7 +351,7 @@
         const blocking = closest.distanceTo(L.center) < L.radius * 0.9 && camera.position.distanceTo(L.center) < camera.position.distanceTo(target);
         const want = blocking ? 0.18 : 1;
         L.o += (want - L.o) * 0.15;
-        L.mats.forEach(m => { m.opacity = L.o; m.depthWrite = L.o > 0.95; });
+        L.mats.forEach(m => { m.opacity = L.o * FADE; m.depthWrite = !focus && L.o > 0.95; });
       });
     }
 

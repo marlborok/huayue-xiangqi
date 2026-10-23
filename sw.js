@@ -4,7 +4,7 @@
  * - pictures, the three.js files and the fonts: cache first (they never change under the same address), network to fill the cache.
  * One full load while online is enough to play offline afterwards. Bump VERSION only to throw the whole cache away.
  */
-const VERSION = 'huayue-v5';
+const VERSION = 'huayue-v6';
 const SHELL = ['./', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/look.js', 'js/sound.js', 'js/rules.js', 'js/ai.js', 'js/figures.js', 'js/paper.js', 'js/terrain.js', 'js/game.js', 'js/book.js', 'assets/paper/variants.json'];
 
@@ -94,7 +94,7 @@ self.addEventListener('fetch', e => {
   const req = e.request; if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (isCode(url) || req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(res => keep(req, res)).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => keep(req, res)).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
   } else {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => keep(req, res))));
   }
