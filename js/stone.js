@@ -8,168 +8,264 @@
  * thud(x, z, big)   a puff of dust where a heavy statue lands
  * shatter(fig, dir) the statue breaks into stone chunks that fly away from the attacker and settle, then sink away
  * update(t)         per-frame: chunks, dust, torches, water
- * Statues are built from simple shapes in code (no model files); faces are left plain, like weathered stone.
+ * Statues are stone golems after the character designs (docs/石棋角色設計.md), built from rough rock blocks in code:
+ * a glowing core shows through the seams, and a captured statue breaks apart along those same blocks.
  */
 (function () {
-  const STONE = {
-    r: { body: '#C48A5C', dark: '#8E5E3C', accent: '#E8C27A', plinth: '#7A6A5E' },   /* 漢: warm sandstone, gold-tinted trim */
-    b: { body: '#4A4B57', dark: '#2C2D36', accent: '#8C9BC4', plinth: '#3A3940' }    /* 楚: dark basalt, cold blue-grey trim */
+  /* the two armies, after the character designs in docs/石棋角色設計.md:
+   * 楚 dark slate with crimson glowing seams and crimson cloth; 漢 warm sandstone with gold seams and royal blue cloth */
+  const ARMY = {
+    b: { rock: '#4E586E', rockDark: '#363D4E', glow: '#FF2E3E', cloth: '#A81F2E', trim: '#D9A441', eye: '#FF4050' },
+    r: { rock: '#C8925A', rockDark: '#9C6C3E', glow: '#FFC23A', cloth: '#2A4FB0', trim: '#E6B84E', eye: '#FFD45A' }
   };
-  const BADGE_Y = { K: 1.85, A: 1.55, B: 1.55, R: 1.55, N: 1.7, C: 1.5, P: 1.4 };
+  const BADGE_Y = { K: 2.0, A: 1.55, B: 1.6, R: 1.7, N: 1.8, C: 1.55, P: 1.45 };
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   function mats(side) {
-    const C = STONE[side];
-    const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.92, metalness: 0, flatShading: true, emissive: '#000000' });
-    return { body: m(C.body), dark: m(C.dark), accent: new THREE.MeshStandardMaterial({ color: C.accent, roughness: 0.6, metalness: 0.15, flatShading: true, emissive: '#000000' }), plinth: m(C.plinth) };
+    const C = ARMY[side];
+    const std = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.9, metalness: 0, flatShading: true }, o || {}));
+    return {
+      rock: std(C.rock), rockDark: std(C.rockDark),
+      glow: new THREE.MeshStandardMaterial({ color: C.glow, emissive: C.glow, emissiveIntensity: 0.9, roughness: 0.6 }),   /* the molten core between the rocks */
+      eye: new THREE.MeshBasicMaterial({ color: C.eye }),
+      cloth: std(C.cloth, { roughness: 0.8, side: THREE.DoubleSide, flatShading: false }),
+      trim: std(C.trim, { roughness: 0.45, metalness: 0.5 }),
+      metal: std('#8E949C', { roughness: 0.5, metalness: 0.6 }),
+      wood: std('#6B4A30'), black: std('#25232A'), ivory: std('#EDE3CC', { roughness: 0.6 }),
+      plinth: std('#6E6A72'), beard: std(side === 'b' ? '#C9CCD6' : '#6A4A2E')
+    };
   }
   const put = (p, mesh, x, y, z) => { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; p.add(mesh); return mesh; };
   const cyl = (rt, rb, h, m, seg) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 10), m);
   const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
   const ball = (r, m, seg) => new THREE.Mesh(new THREE.SphereGeometry(r, seg || 10, Math.max(6, (seg || 10) - 3)), m);
   const cone = (r, h, m, seg) => new THREE.Mesh(new THREE.ConeGeometry(r, h, seg || 8), m);
-  const lathe = (pts, m, seg) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg || 12), m);
+  const lathe = (pts, m, seg) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg || 14), m);
+  /* a rough block of stone: a box whose corners are nudged so no two look alike; it is one of the pieces a statue breaks into */
+  function rock(w, h, d, m) {
+    const g = new THREE.BoxGeometry(w, h, d), p = g.attributes.position, seen = {};
+    for (let i = 0; i < p.count; i++) {
+      const k = [p.getX(i), p.getY(i), p.getZ(i)].map(v => v.toFixed(4)).join();
+      seen[k] = seen[k] || [rnd(-0.12, 0.12) * w, rnd(-0.1, 0.1) * h, rnd(-0.12, 0.12) * d];
+      p.setXYZ(i, p.getX(i) + seen[k][0], p.getY(i) + seen[k][1], p.getZ(i) + seen[k][2]);
+    }
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, m); mesh.userData.block = true; return mesh;
+  }
+  const R = (g, M, w, h, d, x, y, z, dark) => put(g, rock(w, h, d, dark ? M.rockDark : M.rock), x, y, z);
 
-  /* ---------- figures ---------- */
-  /* a standing person: robe or armoured skirt, torso, arms, head. Returns the group and anchor points for hands and head top */
-  function person(M, o) {
-    const g = new THREE.Group();
-    const skirt = o.armour ? [[0.2, 0], [0.22, 0.04], [0.19, 0.3], [0.16, 0.5], [0.15, 0.55]] : [[0.24, 0], [0.26, 0.04], [0.2, 0.3], [0.16, 0.52], [0.15, 0.56]];
-    put(g, lathe(skirt, M.body), 0, 0, 0);
-    put(g, cyl(0.17, 0.15, 0.3, M.body), 0, 0.7, 0);
-    if (o.armour) [0.6, 0.68, 0.76].forEach(y => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.165, 0.018, 4, 12), M.dark); t.rotation.x = Math.PI / 2; put(g, t, 0, y, 0); });
-    else { const sash = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.025, 4, 12), M.accent); sash.rotation.x = Math.PI / 2; put(g, sash, 0, 0.58, 0); }
-    [1, -1].forEach(s => {
-      put(g, ball(0.08, o.armour ? M.dark : M.body), s * 0.19, 0.83, 0);
-      const arm = put(g, cyl(0.05, o.armour ? 0.05 : 0.08, 0.32, M.body), s * 0.22, 0.67, 0.03); arm.rotation.z = s * 0.12;
-      put(g, ball(0.045, M.body), s * 0.23, 0.5, 0.06);
+  /* ---------- the golem body ----------
+   * Stacked rocks around a glowing core, so the seams between them shine. Short thick legs, a heavy chest,
+   * huge shoulders and fists, a small head sunk between the shoulders. Returns anchor points for gear. */
+  function golem(M, o) {
+    const g = new THREE.Group(); o = o || {};
+    [-1, 1].forEach(s => {
+      R(g, M, 0.17, 0.16, 0.19, s * 0.12, 0.09, 0, true);           /* feet */
+      R(g, M, 0.16, 0.17, 0.16, s * 0.12, 0.26, 0);                 /* legs */
     });
-    put(g, cyl(0.05, 0.06, 0.08, M.body), 0, 0.88, 0);
-    put(g, ball(0.11, M.body, 12), 0, 0.99, 0);
-    if (o.beard) put(g, cone(0.06, 0.16, M.dark), 0, 0.88, 0.07).rotation.x = Math.PI;
-    return { g, hand: [new THREE.Vector3(0.23, 0.5, 0.06), new THREE.Vector3(-0.23, 0.5, 0.06)], top: 1.1 };
+    put(g, box(0.34, 0.5, 0.22, M.glow), 0, 0.66, 0);               /* the glowing core */
+    R(g, M, 0.36, 0.13, 0.25, 0, 0.42, 0, true);                    /* hips */
+    [-1, 1].forEach(s => {
+      R(g, M, 0.19, 0.17, 0.25, s * 0.1, 0.57, 0.01);               /* belly */
+      R(g, M, 0.23, 0.22, 0.28, s * 0.125, 0.77, 0.01);             /* chest */
+      R(g, M, 0.29, 0.25, 0.29, s * 0.355, 0.9, 0, true);           /* the great shoulders */
+      R(g, M, 0.16, 0.17, 0.17, s * 0.39, 0.7, 0.01);               /* upper arm */
+      R(g, M, 0.2, 0.19, 0.2, s * 0.41, 0.52, 0.03);                /* forearm */
+      R(g, M, 0.23, 0.2, 0.22, s * 0.42, 0.33, 0.06, true);         /* fist */
+    });
+    const head = new THREE.Group(); head.position.set(0, 1.0, 0.03); g.add(head);
+    if (o.face !== false) face(head, M, o);
+    if (o.cape) cape(g, M, o.cape);
+    return { g, head, hand: [new THREE.Vector3(0.42, 0.33, 0.12), new THREE.Vector3(-0.42, 0.33, 0.12)], top: 1.12 };
   }
-  /* weapons, held upright in the right hand */
-  function polearm(g, M, kind, at, len) {
-    len = len || 1.45;
-    put(g, cyl(0.016, 0.016, len, M.dark, 6), at.x, at.y + len * 0.35, at.z);
-    const tip = at.y + len * 0.85;
-    put(g, cone(0.035, 0.16, M.accent, 6), at.x, tip + 0.08, at.z);
-    if (kind === 'ji') {   /* 戟: a crescent blade beside the spear point */
-      const blade = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.014, 4, 10, Math.PI), M.accent); blade.rotation.z = Math.PI / 2; put(g, blade, at.x + 0.02, tip - 0.06, at.z);
-    } else if (kind === 'ge') {   /* 戈: a dagger blade out to the side */
-      put(g, box(0.16, 0.03, 0.015, M.accent), at.x - 0.07, tip - 0.04, at.z).rotation.z = -0.2;
-    }
+  /* a carved face: smooth stone, a strong brow and jaw, glowing eyes; a beard when asked */
+  function face(head, M, o) {
+    put(head, box(0.17, 0.19, 0.17, M.rock), 0, 0, 0);
+    put(head, box(0.15, 0.045, 0.04, M.rockDark), 0, 0.035, 0.08);   /* brow */
+    put(head, box(0.04, 0.06, 0.04, M.rock), 0, -0.01, 0.095);       /* nose */
+    put(head, box(0.13, 0.05, 0.03, M.rock), 0, -0.075, 0.08);       /* jaw */
+    [-1, 1].forEach(s => put(head, box(0.04, 0.016, 0.012, M.eye), s * 0.04, 0.01, 0.088));
+    if (o.beard === 'long') put(head, cone(0.06, 0.2, M.beard, 6), 0, -0.17, 0.07).rotation.x = Math.PI;
+    else if (o.beard) put(head, box(0.1, 0.05, 0.03, M.beard), 0, -0.09, 0.09);
   }
-  function shield(g, M, at) { put(g, box(0.3, 0.38, 0.035, M.dark), at.x + 0.08, at.y + 0.1, at.z + 0.14); put(g, ball(0.05, M.accent), at.x + 0.08, at.y + 0.1, at.z + 0.16); }
-  function helmet(g, M, top, plume) {
-    put(g, new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), M.dark), 0, top - 0.1, 0);
-    put(g, cone(0.03, plume || 0.14, M.accent), 0, top + 0.05 + (plume || 0.14) / 2, -0.01);
+  /* a cloth cape hanging from the shoulders, curved round the back */
+  function cape(g, M, len) {
+    const geo = new THREE.PlaneGeometry(0.78, len, 6, 6), p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -Math.cos(x * 3.2) * 0.1 - (len / 2 - y) * 0.12 + Math.sin(y * 9 + x * 4) * 0.012); }
+    geo.computeVertexNormals();
+    put(g, new THREE.Mesh(geo, M.cloth), 0, 1.0 - len / 2, -0.2);
   }
-  function plinth(g, M, r) { put(g, cyl(r || 0.38, (r || 0.38) + 0.03, 0.1, M.plinth, 8), 0, 0.05, 0); }
 
-  function horse(M, rider) {
+  /* ---------- helmets and crowns ---------- */
+  function scaleHelmet(head, M, plume, crown) {
+    const dome = put(head, new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.metal), 0, 0.05, -0.01);
+    dome.scale.set(1, 1.1, 1.05);
+    [-1, 1].forEach(s => put(head, box(0.03, 0.14, 0.12, M.metal), s * 0.1, -0.02, -0.01));   /* cheek and neck guards */
+    put(head, box(0.2, 0.035, 0.04, crown ? M.trim : M.metal), 0, 0.07, 0.085);
+    if (crown) put(head, ball(0.022, M.glow), 0, 0.075, 0.108);   /* the red gem */
+    if (plume) { const pl = put(head, cone(0.035, plume, M.cloth, 6), 0, 0.17 + plume / 2, -0.03); pl.rotation.x = -0.25; }
+  }
+  function hornedHelmet(head, M) {
+    scaleHelmet(head, M, 0);
+    [-1, 1].forEach(s => { const h = put(head, cone(0.025, 0.16, M.black, 6), s * 0.1, 0.16, 0); h.rotation.z = -s * 0.6; });
+  }
+  function mianCrown(head, M) {   /* 劉邦: the flat-topped 冕 with strings of jade beads */
+    put(head, cyl(0.07, 0.08, 0.08, M.black), 0, 0.12, 0);
+    put(head, box(0.32, 0.025, 0.22, M.black), 0, 0.17, 0).rotation.x = -0.08;
+    put(head, box(0.33, 0.012, 0.23, M.trim), 0, 0.185, 0).rotation.x = -0.08;
+    const jade = new THREE.MeshStandardMaterial({ color: '#5FA77A', roughness: 0.4 });
+    for (let i = -3; i <= 3; i++) [0.11, -0.11].forEach(z => {
+      for (let k = 0; k < 4; k++) put(head, ball(0.011, jade, 6), i * 0.045, 0.15 - k * 0.028, z + (z > 0 ? 0.01 : -0.01));
+    });
+  }
+  function scholarCap(head, M, tall) { put(head, box(0.1, tall || 0.14, 0.12, M.black), 0, 0.14, -0.01); put(head, box(0.2, 0.012, 0.012, M.black), 0, 0.13, -0.01); }
+
+  /* ---------- weapons ---------- */
+  function pole(g, M, at, len, top) {
+    put(g, cyl(0.02, 0.02, len, M.wood, 6), at.x, at.y + len * 0.42, at.z);
+    const y = at.y + len * 0.92;
+    if (top === 'halberd') {   /* 項羽's great halberd: a broad blade with a gold edge */
+      put(g, box(0.035, 0.36, 0.2, M.metal), at.x, y, at.z + 0.1);
+      put(g, box(0.04, 0.38, 0.025, M.trim), at.x, y, at.z + 0.2);
+      put(g, box(0.05, 0.08, 0.06, M.glow), at.x, y - 0.12, at.z + 0.04);
+    } else if (top === 'glaive') {
+      const b = put(g, box(0.03, 0.34, 0.1, M.metal), at.x, y, at.z + 0.05); b.rotation.x = 0.15;
+    } else if (top === 'ji') {
+      put(g, cone(0.03, 0.16, M.metal, 6), at.x, y + 0.08, at.z);
+      put(g, box(0.02, 0.07, 0.13, M.metal), at.x, y - 0.03, at.z + 0.07);
+    } else if (top === 'ge') {
+      put(g, box(0.02, 0.05, 0.18, M.metal), at.x, y, at.z + 0.09);
+    } else if (top === 'sceptre') {
+      put(g, ball(0.05, M.trim), at.x, y, at.z); put(g, cone(0.04, 0.09, M.trim, 6), at.x, y + 0.07, at.z);
+    } else put(g, cone(0.03, 0.16, M.metal, 6), at.x, y + 0.08, at.z);   /* spear */
+  }
+  function shield(g, M, at, round) {
+    const s = round ? cyl(0.17, 0.17, 0.035, M.black, 16) : box(0.26, 0.34, 0.035, M.trim);
+    if (round) s.rotation.x = Math.PI / 2;
+    put(g, s, at.x - 0.02, at.y + 0.1, at.z + 0.1);
+    put(g, round ? ball(0.05, M.glow) : box(0.1, 0.1, 0.02, M.glow), at.x - 0.02, at.y + 0.1, at.z + 0.13);
+  }
+
+  /* ---------- the officials: a normal build, long robes, only a few stone pieces ---------- */
+  function official(M, o) {
     const g = new THREE.Group();
-    const b = put(g, ball(0.2, M.body, 12), 0, 0.52, 0); b.scale.set(0.85, 0.8, 1.7);
-    put(g, cyl(0.07, 0.1, 0.36, M.body), 0, 0.72, 0.28).rotation.x = 0.6;
-    put(g, box(0.12, 0.14, 0.3, M.body), 0, 0.9, 0.46).rotation.x = 0.5;
-    [1, -1].forEach(s => put(g, cone(0.025, 0.08, M.body), s * 0.04, 1.0, 0.36));
-    put(g, box(0.03, 0.08, 0.34, M.dark), 0, 0.84, 0.24).rotation.x = 0.6;   /* mane */
-    [[0.1, 0.22], [-0.1, 0.22], [0.1, -0.22], [-0.1, -0.22]].forEach(([x, z]) => put(g, cyl(0.04, 0.035, 0.4, M.body, 6), x, 0.2, z));
-    put(g, cyl(0.02, 0.05, 0.36, M.dark, 6), 0, 0.42, -0.4).rotation.x = -0.5;   /* tail */
-    put(g, box(0.36, 0.05, 0.3, M.accent), 0, 0.66, -0.02);   /* saddle cloth */
-    if (rider) {
-      const p = person(M, { armour: true }); p.g.scale.setScalar(0.62); p.g.position.set(0, 0.62, -0.04); g.add(p.g);
-      helmet(p.g, M, p.top, rider === 'king' ? 0.3 : 0.16);
-      polearm(p.g, M, rider === 'king' ? 'ji' : 'spear', p.hand[0], 1.6);
-    }
+    put(g, lathe([[0.2, 0], [0.22, 0.04], [0.17, 0.35], [0.14, 0.7], [0.13, 0.78]], M.cloth), 0, 0, 0);   /* the long robe */
+    const sash = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 4, 14), M.trim); sash.rotation.x = Math.PI / 2; put(g, sash, 0, 0.5, 0);
+    put(g, box(0.1, 0.3, 0.02, M.trim), 0, 0.33, 0.16);   /* the front panel */
+    [-1, 1].forEach(s => {
+      R(g, M, 0.13, 0.1, 0.15, s * 0.17, 0.78, 0);                                   /* stone shoulder pieces */
+      const sl = put(g, cyl(0.06, 0.1, 0.32, M.cloth), s * 0.2, 0.6, 0.04); sl.rotation.z = s * 0.15;   /* wide sleeves */
+      R(g, M, 0.07, 0.07, 0.07, s * 0.2, 0.43, 0.09);                                /* stone hands */
+    });
+    const head = new THREE.Group(); head.position.set(0, 0.92, 0.01); head.scale.setScalar(0.9); g.add(head);
+    face(head, M, o);
+    return { g, head, hand: [new THREE.Vector3(0.2, 0.43, 0.09), new THREE.Vector3(-0.2, 0.43, 0.09)] };
+  }
+
+  /* ---------- mounts and machines ---------- */
+  function horse(M, black) {
+    const g = new THREE.Group(), dark = black ? M.black : M.rockDark, body = black ? M.black : M.rock;
+    put(g, box(0.3, 0.3, 0.6, M.glow), 0, 0.52, 0);   /* glowing core between the blocks */
+    put(g, rock(0.32, 0.28, 0.32, body), 0, 0.54, 0.15); put(g, rock(0.3, 0.27, 0.3, body), 0, 0.52, -0.17);
+    const neck = put(g, rock(0.15, 0.32, 0.17, body), 0, 0.78, 0.32); neck.rotation.x = 0.5;
+    const hd = put(g, rock(0.13, 0.14, 0.3, body), 0, 0.92, 0.46); hd.rotation.x = 0.35;
+    [-1, 1].forEach(s => { put(g, box(0.03, 0.012, 0.01, M.eye), s * 0.07, 0.96, 0.45); put(g, cone(0.025, 0.07, dark, 4), s * 0.04, 1.03, 0.38); });
+    [[0.1, 0.22], [-0.1, 0.22], [0.1, -0.22], [-0.1, -0.22]].forEach(([x, z]) => {
+      put(g, rock(0.1, 0.2, 0.1, body), x, 0.29, z); put(g, rock(0.1, 0.18, 0.1, dark), x, 0.1, z);
+    });
+    const mane = put(g, box(0.05, 0.12, 0.34, black ? M.glow : M.cloth), 0, 0.88, 0.25); mane.rotation.x = 0.5;   /* 烏騅's mane burns crimson */
+    const tail = put(g, box(0.05, 0.3, 0.06, black ? M.glow : dark), 0, 0.5, -0.38); tail.rotation.x = -0.4;
+    put(g, box(0.36, 0.05, 0.3, M.cloth), 0, 0.69, -0.02);   /* saddle cloth */
     return g;
   }
-
-  function elephant(M) {
-    const g = new THREE.Group();
-    const b = put(g, ball(0.3, M.body, 12), 0, 0.6, -0.04); b.scale.set(1, 0.9, 1.35);
-    put(g, ball(0.2, M.body, 12), 0, 0.74, 0.4);
-    [1, -1].forEach(s => { const e = put(g, ball(0.15, M.body, 10), s * 0.2, 0.76, 0.32); e.scale.set(0.3, 1, 0.9); });
-    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.66, 0.56), new THREE.Vector3(0, 0.42, 0.7), new THREE.Vector3(0, 0.2, 0.68), new THREE.Vector3(0, 0.14, 0.58)]);
-    put(g, new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.05, 6), M.body), 0, 0, 0);
-    [1, -1].forEach(s => put(g, cone(0.03, 0.26, M.accent), s * 0.1, 0.56, 0.6).rotation.x = 1.9);
-    [[0.17, 0.25], [-0.17, 0.25], [0.17, -0.3], [-0.17, -0.3]].forEach(([x, z]) => put(g, cyl(0.08, 0.085, 0.42, M.body, 8), x, 0.21, z));
-    put(g, box(0.34, 0.2, 0.34, M.dark), 0, 0.98, -0.08);   /* the howdah on its back */
-    put(g, cone(0.28, 0.2, M.accent, 4), 0, 1.18, -0.08).rotation.y = Math.PI / 4;
-    return g;
-  }
-
   function chariot(M) {
     const g = new THREE.Group();
-    put(g, box(0.46, 0.06, 0.42, M.dark), 0, 0.32, 0);
-    [[0.23, 0], [-0.23, 0]].forEach(([x]) => put(g, box(0.03, 0.18, 0.42, M.body), x, 0.44, 0));
-    put(g, box(0.46, 0.18, 0.03, M.body), 0, 0.44, 0.2);
-    [1, -1].forEach(s => {
-      const w = new THREE.Group(); w.position.set(s * 0.3, 0.3, 0); w.rotation.y = Math.PI / 2; g.add(w);
-      put(w, new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.03, 5, 18), M.dark), 0, 0, 0);
-      for (let i = 0; i < 4; i++) put(w, box(0.02, 0.54, 0.02, M.body), 0, 0, 0).rotation.z = i * Math.PI / 4;
+    put(g, rock(0.44, 0.08, 0.32, M.rockDark), 0, 0.3, 0);
+    [-1, 1].forEach(s => put(g, rock(0.04, 0.18, 0.32, M.rock), s * 0.22, 0.42, 0));
+    [-1, 1].forEach(s => {
+      const w = new THREE.Group(); w.position.set(s * 0.28, 0.27, 0); w.rotation.y = Math.PI / 2; g.add(w);
+      put(w, new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.04, 5, 16), M.rockDark), 0, 0, 0);
+      for (let i = 0; i < 4; i++) put(w, box(0.025, 0.48, 0.025, M.wood), 0, 0, 0).rotation.z = i * Math.PI / 4;
+      put(w, cone(0.04, 0.1, M.trim, 6), 0, 0, 0.06).rotation.x = Math.PI / 2;   /* hub spike */
     });
-    put(g, cyl(0.02, 0.02, 0.7, M.dark, 6), 0, 0.3, 0).rotation.z = Math.PI / 2;   /* axle */
-    put(g, cyl(0.022, 0.022, 0.6, M.dark, 6), 0, 0.36, 0.48).rotation.x = Math.PI / 2 - 0.15;   /* the shaft */
-    const p = person(M, { armour: true }); p.g.scale.setScalar(0.72); p.g.position.set(0, 0.35, -0.04); g.add(p.g);
-    helmet(p.g, M, p.top, 0.12); polearm(p.g, M, 'ji', p.hand[0], 1.5);
-    put(g, box(0.02, 0.26, 0.2, M.accent), -0.2, 1.05, -0.12);   /* banner */
-    put(g, cyl(0.01, 0.01, 0.75, M.dark, 4), -0.2, 0.8, -0.02);
+    put(g, cyl(0.012, 0.012, 0.9, M.wood, 4), -0.2, 0.75, -0.1);   /* banner pole */
+    put(g, box(0.02, 0.26, 0.2, M.cloth), -0.2, 1.05, 0);
     return g;
   }
-
-  function trebuchet(M) {
+  function trebuchet(M, beast) {
     const g = new THREE.Group();
-    [1, -1].forEach(s => {
-      put(g, box(0.05, 0.05, 0.6, M.dark), s * 0.18, 0.13, 0);
-      [-1, 1].forEach(d => put(g, cyl(0.025, 0.03, 0.66, M.body, 6), s * 0.18, 0.42, d * 0.13).rotation.x = -d * 0.4);
+    [-1, 1].forEach(s => {
+      put(g, rock(0.07, 0.07, 0.62, M.rockDark), s * 0.2, 0.08, 0);
+      [-1, 1].forEach(d => { const l = put(g, rock(0.07, 0.68, 0.07, M.rock), s * 0.2, 0.4, d * 0.13); l.rotation.x = -d * 0.38; });
     });
-    put(g, cyl(0.025, 0.025, 0.44, M.dark, 6), 0, 0.72, 0).rotation.z = Math.PI / 2;
-    const arm = new THREE.Group(); arm.position.set(0, 0.72, 0); arm.rotation.x = -0.9; g.add(arm);
-    put(arm, cyl(0.025, 0.035, 1.0, M.body, 6), 0, 0.25, 0);
-    put(arm, box(0.18, 0.16, 0.16, M.dark), 0, -0.22, 0);   /* counterweight */
-    put(arm, ball(0.07, M.accent), 0, 0.76, 0);   /* the stone in its sling */
+    put(g, cyl(0.03, 0.03, 0.5, M.trim, 6), 0, 0.72, 0).rotation.z = Math.PI / 2;
+    const arm = new THREE.Group(); arm.position.set(0, 0.72, 0); arm.rotation.x = -0.85; g.add(arm);
+    put(arm, rock(0.07, 1.0, 0.07, M.rock), 0, 0.22, 0);
+    const cw = put(arm, rock(0.2, 0.18, 0.2, M.rockDark), 0, -0.24, 0);
+    if (beast) [-1, 1].forEach(s => put(arm, box(0.03, 0.015, 0.01, M.eye), s * 0.05, -0.22, 0.105));   /* 楚: the counterweight is a snarling beast */
+    put(arm, ball(0.08, M.glow), 0, 0.76, 0.02);   /* the glowing boulder in its sling */
+    put(g, cyl(0.012, 0.012, 0.6, M.wood, 4), -0.26, 0.55, 0.2); put(g, box(0.02, 0.16, 0.14, M.cloth), -0.26, 0.78, 0.26);
+    return g;
+  }
+  function elephant(M) {
+    const g = new THREE.Group();
+    put(g, box(0.4, 0.38, 0.6, M.glow), 0, 0.62, -0.02);
+    put(g, rock(0.46, 0.42, 0.36, M.rock), 0, 0.64, 0.13); put(g, rock(0.44, 0.4, 0.34, M.rock), 0, 0.62, -0.2);
+    const hd = put(g, rock(0.32, 0.3, 0.24, M.rock), 0, 0.82, 0.38);
+    [-1, 1].forEach(s => { const ear = put(g, rock(0.04, 0.24, 0.2, M.rockDark), s * 0.2, 0.84, 0.32); ear.rotation.y = s * 0.4; });
+    put(g, box(0.3, 0.12, 0.06, M.cloth), 0, 0.92, 0.5);   /* armoured head plate */
+    put(g, box(0.06, 0.04, 0.02, M.trim), 0, 0.95, 0.535);
+    [-1, 1].forEach(s => put(g, box(0.04, 0.015, 0.01, M.eye), s * 0.09, 0.85, 0.505));
+    for (let i = 0; i < 4; i++) put(g, rock(0.1 - i * 0.012, 0.1, 0.1, M.rock), 0, 0.7 - i * 0.12, 0.55 + i * 0.03);   /* trunk */
+    [-1, 1].forEach(s => { const t = put(g, cone(0.035, 0.32, M.ivory, 6), s * 0.11, 0.66, 0.6); t.rotation.x = 1.75; });
+    [[0.15, 0.2], [-0.15, 0.2], [0.15, -0.25], [-0.15, -0.25]].forEach(([x, z]) => {
+      put(g, rock(0.15, 0.24, 0.15, M.rock), x, 0.32, z); put(g, rock(0.16, 0.2, 0.16, M.rockDark), x, 0.11, z);
+    });
+    put(g, box(0.5, 0.05, 0.5, M.cloth), 0, 0.86, -0.06);
+    put(g, box(0.28, 0.2, 0.28, M.black), 0, 0.99, -0.08);   /* the war tower */
+    put(g, cone(0.26, 0.15, M.trim, 4), 0, 1.16, -0.08).rotation.y = Math.PI / 4;
+    put(g, cyl(0.01, 0.01, 0.4, M.wood, 4), 0, 1.35, -0.08); put(g, box(0.02, 0.1, 0.16, M.cloth), 0, 1.48, 0);
     return g;
   }
 
   function figure(side, t) {
-    const M = mats(side), red = side === 'r', g = new THREE.Group();
-    const mount = (child, y) => { child.position.y = y; g.add(child); return child; };
-    if (t === 'N') { plinth(g, M, 0.4); mount(horse(M, 'rider'), 0.1); }
-    else if (t === 'R') { plinth(g, M, 0.42); mount(chariot(M), 0.1); }
-    else if (t === 'C') { plinth(g, M, 0.4); mount(trebuchet(M), 0.1); }
-    else if (t === 'B' && !red) { plinth(g, M, 0.42); mount(elephant(M), 0.1); }
-    else {
-      plinth(g, M);
-      const armour = t === 'P' || (t === 'K' && !red);
-      const p = person(M, { armour, beard: t === 'A' || (t === 'B' && red) || (t === 'K' && red) });
-      mount(p.g, 0.1);
-      if (t === 'K') {
-        p.g.scale.setScalar(1.22);
-        if (red) {   /* 劉邦: the flat-topped 冕 crown with beads hanging at the front, a sceptre */
-          put(p.g, cyl(0.09, 0.1, 0.1, M.accent), 0, p.top, 0);
-          put(p.g, box(0.32, 0.025, 0.2, M.accent), 0, p.top + 0.07, 0).rotation.x = -0.1;
-          for (let i = -2; i <= 2; i++) put(p.g, cyl(0.006, 0.006, 0.1, M.dark, 4), i * 0.05, p.top + 0.01, 0.11);
-          put(p.g, cyl(0.02, 0.02, 0.5, M.accent, 6), p.hand[0].x, p.hand[0].y + 0.15, p.hand[0].z + 0.04);
-        } else {   /* 項羽: a tall plumed helmet and his great 戟 */
-          helmet(p.g, M, p.top, 0.34); polearm(p.g, M, 'ji', p.hand[0], 1.6);
-          const cape = put(p.g, box(0.4, 0.62, 0.03, M.dark), 0, 0.55, -0.18); cape.rotation.x = 0.12;
-        }
-      } else if (t === 'A') {   /* 謀士: a scholar's tall hat; 張良 with a feather fan, 范增 with a scroll */
-        put(p.g, box(0.1, 0.16, 0.12, M.dark), 0, p.top + 0.04, -0.02);
-        if (red) { const fan = put(p.g, new THREE.Mesh(new THREE.CircleGeometry(0.13, 10), M.accent), p.hand[0].x, p.hand[0].y + 0.17, p.hand[0].z + 0.04); fan.material = M.accent; fan.material.side = THREE.DoubleSide; }
-        else put(p.g, cyl(0.035, 0.035, 0.3, M.accent, 8), 0, 0.52, 0.12).rotation.z = Math.PI / 2;
-      } else if (t === 'B') {   /* 丞相: a court official holding his 笏 tablet before him */
-        put(p.g, box(0.24, 0.05, 0.08, M.dark), 0, p.top + 0.02, 0);
-        put(p.g, box(0.06, 0.3, 0.02, M.accent), 0, 0.62, 0.18);
-      } else if (t === 'P') {   /* 步卒: helmet, shield, 戟 for 漢 and 戈 for 楚 */
-        helmet(p.g, M, p.top, 0.08); shield(p.g, M, p.hand[1]); polearm(p.g, M, red ? 'ji' : 'ge', p.hand[0], 1.3);
+    const M = mats(side), chu = side === 'b', g = new THREE.Group();
+    put(g, cyl(0.38, 0.4, 0.08, M.plinth, 20), 0, 0.04, 0);
+    const on = (child, y, s) => { child.position.y = y; if (s) child.scale.setScalar(s); g.add(child); return child; };
+    if (t === 'K') {
+      const k = golem(M, { cape: 0.95, beard: chu ? false : true }); on(k.g, 0.08, 1.15);
+      if (chu) { scaleHelmet(k.head, M, 0.3, true); pole(k.g, M, k.hand[0], 1.45, 'halberd'); }
+      else { mianCrown(k.head, M); pole(k.g, M, k.hand[0], 0.9, 'sceptre'); }
+    } else if (t === 'A') {
+      const o = official(M, { beard: chu ? 'long' : false }); on(o.g, 0.08);
+      scholarCap(o.head, M, chu ? 0.12 : 0.16);
+      if (chu) pole(o.g, M, o.hand[0], 1.0, 'staff');   /* 范增 leans on his staff */
+      else { const fan = put(o.g, new THREE.Mesh(new THREE.CircleGeometry(0.11, 10), M.ivory), o.hand[0].x, o.hand[0].y + 0.15, o.hand[0].z + 0.03); fan.material.side = THREE.DoubleSide; }
+      put(o.g, cyl(0.03, 0.03, 0.22, M.wood, 8), o.hand[1].x + 0.04, o.hand[1].y + 0.03, o.hand[1].z + 0.03).rotation.z = 1.2;   /* bamboo scroll */
+    } else if (t === 'B') {
+      if (chu) on(elephant(M), 0.08);
+      else {   /* 蕭何 holds his ivory court tablet before him */
+        const o = official(M, { beard: 'long' }); on(o.g, 0.08);
+        put(o.head, box(0.16, 0.13, 0.13, M.black), 0, 0.13, -0.01).rotation.x = -0.2;
+        put(o.g, box(0.05, 0.3, 0.015, M.ivory), 0, 0.6, 0.17);
       }
+    } else if (t === 'R') {
+      on(chariot(M), 0.08).position.z = -0.12;
+      const w = golem(M, { beard: true }); on(w.g, 0.08, 0.82).position.z = 0.1;
+      if (chu) { hornedHelmet(w.head, M); pole(w.g, M, w.hand[0], 1.45, 'glaive'); }
+      else { scaleHelmet(w.head, M, 0.12); pole(w.g, M, w.hand[0], 1.4, 'spear'); shield(w.g, M, w.hand[1], true); }
+    } else if (t === 'N') {
+      on(horse(M, chu), 0.08);
+      const r = golem(M, { cape: chu ? 0.7 : 0.7 }); on(r.g, 0.62, 0.55).position.z = -0.04;
+      scaleHelmet(r.head, M, 0.2); pole(r.g, M, r.hand[0], 1.6, 'spear');
+    } else if (t === 'C') {
+      on(trebuchet(M, chu), 0.08);
+    } else {   /* the foot soldier: the smallest golem */
+      const p = golem(M, {}); on(p.g, 0.08, 0.78);
+      scaleHelmet(p.head, M, 0.08);
+      pole(p.g, M, p.hand[0], 1.35, chu ? 'ge' : 'ji'); shield(p.g, M, p.hand[1], chu);
     }
-    const all = [];
-    g.traverse(o => { if (o.isMesh && !all.includes(o.material)) all.push(o.material); });
-    g.userData.stone = { mats: all, body: M.body, glow: 0 };
+    g.userData.stone = { glowMat: M.glow, glow: 0 };
     return g;
   }
 
@@ -305,20 +401,24 @@
   }
   function thud(x, z, big) { if (scene) puff(x, 0.05, z, big ? 14 : 8, big ? 1.4 : 0.8, big); }
 
-  const tmpBox = new THREE.Box3();
+  /* the statue breaks apart along its own blocks: every piece of it (rocks, cloth, weapon) flies away from the attacker,
+   * bounces on the slab and sinks into the stone. The pieces are copies, so the statue itself is untouched for undo. */
+  const tmpBox = new THREE.Box3(), wp = new THREE.Vector3(), wq = new THREE.Quaternion(), ws = new THREE.Vector3();
   function shatter(fig, dir) {
     if (!scene) return;
-    tmpBox.setFromObject(fig);
-    const mat = fig.userData.stone ? fig.userData.stone.body : null;
-    const d = dir && dir.lengthSq() ? dir.clone().setY(0).normalize() : new THREE.Vector3();
-    const size = tmpBox.getSize(new THREE.Vector3()), c = tmpBox.getCenter(new THREE.Vector3());
-    for (let i = 0; i < 34; i++) {
-      const r = rnd(0.05, 0.13), m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat);
-      m.castShadow = true; m.position.set(c.x + rnd(-0.5, 0.5) * size.x, tmpBox.min.y + rnd(0.1, 1) * size.y, c.z + rnd(-0.5, 0.5) * size.z);
-      m.rotation.set(rnd(0, 6), rnd(0, 6), rnd(0, 6)); scene.add(m);
-      const out = new THREE.Vector3(m.position.x - c.x, 0, m.position.z - c.z).normalize().multiplyScalar(rnd(0.6, 1.8)).addScaledVector(d, rnd(1.2, 2.6));
-      live.push({ kind: 'chunk', o: m, r, v: new THREE.Vector3(out.x, rnd(1.5, 3.6), out.z), w: new THREE.Vector3(rnd(-8, 8), rnd(-8, 8), rnd(-8, 8)), age: 0, life: 4.5 });
-    }
+    fig.updateMatrixWorld(true); tmpBox.setFromObject(fig);
+    const c = tmpBox.getCenter(new THREE.Vector3()), d = dir && dir.lengthSq() ? dir.clone().setY(0).normalize() : new THREE.Vector3();
+    let first = true;
+    fig.traverse(o => {
+      if (!o.isMesh) return;
+      if (first) { first = false; return; }   /* the plinth stays behind, then sinks with the rest */
+      o.matrixWorld.decompose(wp, wq, ws);
+      const m = new THREE.Mesh(o.geometry, o.material); m.position.copy(wp); m.quaternion.copy(wq); m.scale.copy(ws); m.castShadow = true; scene.add(m);
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const r = Math.max(0.03, o.geometry.boundingSphere.radius * ws.x * 0.6);
+      const out = new THREE.Vector3(wp.x - c.x, 0, wp.z - c.z).normalize().multiplyScalar(rnd(0.4, 1.4)).addScaledVector(d, rnd(1.0, 2.4));
+      live.push({ kind: 'chunk', o: m, r, v: new THREE.Vector3(out.x, rnd(1.2, 3.2) * (0.5 + wp.y), out.z), w: new THREE.Vector3(rnd(-7, 7), rnd(-7, 7), rnd(-7, 7)), age: 0, life: 4.5 });
+    });
     puff(c.x, 0.3, c.z, 18, 1.6, true);
   }
 
@@ -336,7 +436,7 @@
             o.position.y = L.r * 0.7; L.v.y = Math.abs(L.v.y) > 0.6 ? -L.v.y * 0.3 : 0; L.v.x *= 0.6; L.v.z *= 0.6; L.w.multiplyScalar(0.5);
           }
         } else o.position.y -= dt * 0.35;   /* the rubble sinks into the stone */
-        if (L.age > L.life) { scene.remove(o); o.geometry.dispose(); live.splice(i, 1); }
+        if (L.age > L.life) { scene.remove(o); live.splice(i, 1); }   /* geometry is shared with the statue */
       } else {
         const k = L.age / L.life; L.o.position.addScaledVector(L.v, dt); L.v.multiplyScalar(0.94);
         L.o.scale.setScalar(L.o.scale.x * (1 + dt * 0.9)); L.o.material.opacity = 0.6 * (1 - k);
@@ -347,11 +447,11 @@
     if (water) { water.material.map.offset.x = t * 0.03; }
     if (motes) { motes.rotation.y = t * 0.01; motes.position.y = Math.sin(t * 0.2) * 0.1; }
   }
-  /* statues that woke up glow warm, fading back to stone */
+  /* a statue told to move wakes up: its seams flare bright, then settle back to a steady glow */
   function updateFig(fig, dt) {
     const S = fig.userData.stone; if (!S || S.glow <= 0) return;
     S.glow = Math.max(0, S.glow - dt * 0.6);
-    S.mats.forEach(m => { m.emissive.setRGB(0.55 * S.glow, 0.32 * S.glow, 0.1 * S.glow); });
+    S.glowMat.emissiveIntensity = 0.9 + 2.2 * S.glow;
   }
 
   window.XQStone = { figure, hall, glow, thud, shatter, update, updateFig, BADGE_Y };
