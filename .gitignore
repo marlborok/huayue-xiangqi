@@ -6,3 +6,4 @@
 .claude/
 # API keys and other local secrets
 .env
+石棋/
