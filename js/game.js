@@ -4,8 +4,10 @@
   const { badgeTexture, M } = XQFigures;
   /* characters: the paper-doll illustrations (js/paper.js) once loaded, the geometric placeholders otherwise */
   let paper = false;
-  const figure = (side, t) => paper ? XQPaper.figure(side, t, aniso) : XQFigures.figure(side, t);
-  const badgeY = t => (paper ? XQPaper.BADGE_Y : XQFigures.BADGE_Y)[t];
+  /* 楚漢石棋 (explore-3d): stone statues in an underground hall (js/stone.js) replace both when that module is loaded */
+  const stone = !!window.XQStone;
+  const figure = (side, t) => stone ? XQStone.figure(side, t) : paper ? XQPaper.figure(side, t, aniso) : XQFigures.figure(side, t);
+  const badgeY = t => (stone ? XQStone.BADGE_Y : paper ? XQPaper.BADGE_Y : XQFigures.BADGE_Y)[t];
   const nm = p => NAME[p.t][p.side === 'r' ? 0 : 1];
   const kingName = s => NAME.K[s === 'r' ? 0 : 1];
   const $ = id => document.getElementById(id);
@@ -57,6 +59,7 @@
   table.rotation.x = -Math.PI / 2; table.position.y = -0.46; table.receiveShadow = true; classic.add(table);
   const base = new THREE.Mesh(new THREE.BoxGeometry(9.9, 0.45, 10.9), new THREE.MeshStandardMaterial({ color: '#B9783F', roughness: 0.8 }));
   base.position.y = -0.225; base.receiveShadow = true; classic.add(base);
+  if (stone) { classic.visible = false; XQStone.hall(scene, { sun, hemi }); }
   /* three board styles: 花月專注 (default: the land made quiet so the pieces stand out), 花月大地 (the full painted land), 經典棋盤 */
   const STYLES = [['focus', '花月專注'], ['full', '花月大地'], ['classic', '經典棋盤']];
   let boardStyle = 'focus';
@@ -64,6 +67,7 @@
   if (!window.XQTerrain) boardStyle = 'classic';
   const terrains = {}; let terrain = null;
   function applyLook() {
+    if (stone) return;   /* the hall is the only look */
     if (boardStyle !== 'classic' && !terrains[boardStyle] && window.XQTerrain) terrains[boardStyle] = XQTerrain.build(scene, aniso, { focus: boardStyle === 'focus' });
     terrain = terrains[boardStyle] || null;
     classic.visible = !terrain; Object.values(terrains).forEach(t => { t.root.visible = t === terrain; });
@@ -116,17 +120,17 @@
       if (paper) { /* a soft watercolor pool under the paper doll, instead of a solid base that hides her feet */
         const pool = new THREE.Mesh(new THREE.CircleGeometry(0.4, 40), new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#C9B89A' : '#8E8CCB', transparent: true, opacity: p.side === 'r' ? 0.4 : 0.5, depthWrite: false }));
         pool.rotation.x = -Math.PI / 2; pool.position.y = 0.015; orient.add(pool);
-      } else {
+      } else if (!stone) {   /* statues stand on their own plinths */
         const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.08, 40), M(p.side === 'r' ? '#D9445C' : '#34457E', { roughness: 0.4 }));
         disc.position.y = 0.04; disc.castShadow = true; disc.receiveShadow = true; orient.add(disc);
       }
-      tilt.position.y = paper ? 0.02 : 0.08; tilt.rotation.x = LEAN; orient.add(tilt);
+      tilt.position.y = stone ? 0 : paper ? 0.02 : 0.08; tilt.rotation.x = stone ? 0 : LEAN; orient.add(tilt);
       const fig = figure(p.side, p.t); tilt.add(fig);
       /* floating badge: flat, readable from straight above, upright for its own player like a real piece */
       const hold = new THREE.Group(); hold.rotation.y = p.side === 'b' ? Math.PI : 0; outer.add(hold);
       const key = p.side + p.t; badgeCache[key] = badgeCache[key] || badgeTexture(p.side, CH[p.t][p.side], aniso);
       const hm = new THREE.MeshBasicMaterial({ map: badgeCache[key], transparent: true, depthWrite: false });
-      const halo = new THREE.Mesh(new THREE.CircleGeometry(paper ? 0.28 : 0.36, 40), hm);
+      const halo = new THREE.Mesh(new THREE.CircleGeometry(stone ? 0.22 : paper ? 0.28 : 0.36, 40), hm);
       halo.rotation.x = -Math.PI / 2 + 0.3; halo.position.y = badgeY(p.t); halo.renderOrder = 2; hold.add(halo);
       const sm = new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#D9445C' : '#34457E', transparent: true });
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), sm); stem.position.y = badgeY(p.t) - 0.1; hold.add(stem);
@@ -142,7 +146,7 @@
       const p = board[r][f]; if (!p) continue;
       const v = vis[p.id];
       v.outer.visible = true; v.outer.position.set(wx(f), 0, wz(r)); v.outer.scale.setScalar(1);
-      v.fig.position.set(0, 0, 0); v.fig.rotation.set(0, 0, 0); v.tilt.rotation.set(LEAN, 0, 0);
+      v.fig.position.set(0, 0, 0); v.fig.rotation.set(0, 0, 0); v.tilt.rotation.set(stone ? 0 : LEAN, 0, 0);
       if (paper) { XQPaper.dissolve(v.fig, 0); v.halo.scale.setScalar(1); v.stem.scale.setScalar(1); }
     }
   }
@@ -237,7 +241,8 @@
     const dist = Math.max(fitH, fitW) * 1.04 + (camera.aspect < 0.8 ? 0.3 : 1.6);
     /* paper dolls are flat cards, so they need a lower camera than the 3D figures to be seen standing */
     /* the geometric placeholders are solid, so they read fine from higher up; the flat paper dolls follow the chosen view */
-    const phi = paper ? viewTilt() : Math.min(0.25, viewTilt());
+    /* statues are seen best from lower down, like standing at the edge of the hall */
+    const phi = stone ? viewTilt() + 0.35 : paper ? viewTilt() : Math.min(0.25, viewTilt());
     const look = new THREE.Vector3(0, 0, phi * 0.42 * s);   /* the lower the camera, the further across the board it looks (立體 as before) */
     const pos = new THREE.Vector3(0, dist * Math.cos(phi), dist * Math.sin(phi) * s).add(look);
     return { pos, look };
@@ -548,16 +553,19 @@
     if (victim && cine()) { usedCam = true; await closeUp(tx, ty, p.side); }
 
     /* the move itself: a hop, a big leap for horses, a high arc for a cannon capture */
-    const arc = p.t === 'N' ? 1.1 : (p.t === 'C' && victim ? 2.2 : 0.45);
-    const dur = victim && cine() ? 1100 : 560;
+    /* statues are heavy: they glow awake, then slide with only a slight lift (the horse leaps a little) */
+    const arc = stone ? (p.t === 'N' ? 0.5 : 0.06) : p.t === 'N' ? 1.1 : (p.t === 'C' && victim ? 2.2 : 0.45);
+    const dur = stone ? (victim && cine() ? 1300 : 900) : victim && cine() ? 1100 : 560;
+    if (stone) { XQStone.glow(vis[p.id].fig); await wait(D(350)); }
     const sx = o.position.x, sy = o.position.y, sz = o.position.z, ex = wx(tx), ez = wz(ty);
     let popped = false;
     const pop = () => {
       const vv = vis[victim.id];
-      burst(new THREE.Vector3(ex, 0.6, ez), p.side === 'r' ? PETALS : STARS, 26, true);
+      if (!stone) burst(new THREE.Vector3(ex, 0.6, ez), p.side === 'r' ? PETALS : STARS, 26, true);
       sfx('capture', p.side);
       happyUntil[p.id] = performance.now() + 2600;
-      if (paper) tw(D(800), t => { XQPaper.dissolve(vv.fig, t); vv.halo.scale.setScalar(1 - t); vv.stem.scale.setScalar(1 - t); }).then(() => { vv.outer.visible = false; });
+      if (stone) { XQStone.shatter(vv.fig, new THREE.Vector3(ex - sx, 0, ez - sz)); vv.outer.visible = false; }
+      else if (paper) tw(D(800), t => { XQPaper.dissolve(vv.fig, t); vv.halo.scale.setScalar(1 - t); vv.stem.scale.setScalar(1 - t); }).then(() => { vv.outer.visible = false; });
       else tw(320, t => vv.outer.scale.setScalar(1 - t)).then(() => { vv.outer.visible = false; });
     };
     await tw(D(dur), t => {
@@ -567,6 +575,7 @@
     });
     if (victim && !popped) pop();
     o.position.set(ex, 0, ez); if (!victim) sfx('move');
+    if (stone) XQStone.thud(ex, ez, !!victim);
 
     if (victim) {
       captured[p.side].push(victim); updateTrays();
@@ -1000,7 +1009,8 @@
     if (!dayInit) { dayNow.sun.copy(dayWant.sun); dayNow.sky.copy(dayWant.sky); dayNow.k = dayWant.k; dayInit = true; }
     const ease = reduceMotion ? 1 : 0.02;
     dayNow.sun.lerp(dayWant.sun, ease); dayNow.sky.lerp(dayWant.sky, ease); dayNow.k += (dayWant.k - dayNow.k) * ease;
-    if (look) { sun.color.copy(dayNow.sun); sun.intensity = dayNow.k; hemi.color.copy(dayNow.sky); }
+    if (stone) { XQStone.update(now / 1000); Object.values(vis).forEach(v => XQStone.updateFig(v.fig, 1 / 60)); }
+    if (look && !stone) { sun.color.copy(dayNow.sun); sun.intensity = dayNow.k; hemi.color.copy(dayNow.sky); }
     const cw = cloudSide && !over ? 1 : 0;
     cloud.material.opacity += (cw - cloud.material.opacity) * (reduceMotion ? 1 : 0.04);
     cloud.visible = cloud.material.opacity > 0.01;
