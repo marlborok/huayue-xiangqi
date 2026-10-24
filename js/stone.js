@@ -336,6 +336,7 @@
     sc.background = new THREE.Color('#141016'); sc.environment = null;
     sc.fog = new THREE.Fog('#141016', 16, 42);
     ctx.hemi.color.set('#9A8FA8'); ctx.hemi.groundColor.set('#2A2228'); ctx.hemi.intensity = 0.55;
+    if (window.XQToy && !/[?&]golem/.test(location.search)) { ctx.hemi.color.set('#FFF2E4'); ctx.hemi.intensity = 0.95; }   /* painted toys want a brighter, warmer fill */
     ctx.sun.color.set('#D6DCFF'); ctx.sun.intensity = 0.85; ctx.sun.position.set(-3, 14, 5);   /* a shaft of cold light from above */
     const root = new THREE.Group(); sc.add(root);
     const stoneM = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, metalness: 0 });
@@ -454,5 +455,7 @@
     S.glowMat.emissiveIntensity = 0.9 + 2.2 * S.glow;
   }
 
-  window.XQStone = { figure, hall, glow, thud, shatter, update, updateFig, BADGE_Y };
+  /* the toy look (js/toy.js) is the current experiment; ?golem shows the rock golems instead */
+  const toy = !!window.XQToy && !/[?&]golem/.test(location.search);
+  window.XQStone = { figure: toy ? XQToy.figure : figure, hall, glow, thud, shatter, update, updateFig, BADGE_Y: toy ? XQToy.BADGE_Y : BADGE_Y, toy };
 })();
