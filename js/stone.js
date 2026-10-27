@@ -624,6 +624,24 @@
     if (water) { water.material.map.offset.x = t * 0.03; }
     if (motes) { motes.rotation.y = t * 0.01; motes.position.y = Math.sin(t * 0.2) * 0.1; }
   }
+  /* the attack, driven by the move's progress t (0..1; the victim breaks at about 0.62):
+   * wind up, strike fast, hold, recover. swing = overhead chop, thrust = spear levelled forward,
+   * throw = the catapult's arm flung over, lunge = a lean forward for pieces with no weapon arm */
+  const STRIKE = { swing: [-2.7, -0.45, -0.1, 0.2], thrust: [0.45, -1.5, -0.04, 0.16], throw: [-1.15, 0.95, 0, 0], lunge: [0, 0, -0.05, 0.28] };
+  function strike(fig, t) {
+    const S = fig.userData.stone; if (!S || !S.rig) return;
+    const P = STRIKE[S.rig.kind] || STRIKE.lunge, rest = S.rest;
+    const ease = x => x * x * (3 - 2 * x);
+    let w, h;   /* how far into the wind-up, how far into the hit */
+    if (t < 0.45) { w = ease(t / 0.45); h = 0; }
+    else if (t < 0.62) { w = 1; h = Math.pow((t - 0.45) / 0.17, 2); }
+    else if (t < 0.8) { w = 1; h = 1; }
+    else { const u = ease(Math.min(1, (t - 0.8) / 0.2)); w = 1 - u; h = 1 - u; }
+    const wind = rest + (P[0] - rest) * w, angle = wind + (P[1] - wind) * h;
+    if (S.rig.arm) S.rig.arm.rotation.x = t >= 1 ? rest : angle;
+    fig.rotation.x = t >= 1 ? 0 : P[2] * w * (1 - h) + P[3] * h;
+  }
+
   /* a statue told to move wakes up: its seams flare bright, then settle back to a steady glow */
   function updateFig(fig, dt) {
     const S = fig.userData.stone; if (!S || S.glow <= 0) return;
@@ -639,5 +657,5 @@
 
   /* the toy look (js/toy.js) is the current experiment; ?golem shows the rock golems instead */
   const toy = !!window.XQToy && !/[?&]golem/.test(location.search);
-  window.XQStone = { figure: toy ? XQToy.figure : figure, hall, glow, thud, shatter, update, updateFig, BADGE_Y: toy ? XQToy.BADGE_Y : BADGE_Y, toy, pieces: () => live.filter(L => L.kind === 'chunk').length };
+  window.XQStone = { figure: toy ? XQToy.figure : figure, hall, glow, thud, shatter, strike, update, updateFig, BADGE_Y: toy ? XQToy.BADGE_Y : BADGE_Y, toy, pieces: () => live.filter(L => L.kind === 'chunk').length };
 })();

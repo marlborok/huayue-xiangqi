@@ -99,7 +99,7 @@
       geo.computeVertexNormals();
       put(g, new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: o.cape, roughness: 0.6, side: THREE.DoubleSide })), 0, 0.36, -0.14);
     }
-    return { g, head: hd, hand: hands };
+    return { g, head: hd, hand: hands, arm: [g, g], hl: hands };
   }
   /* an official: a long robe and wide sleeves instead of legs and armour */
   function chibiOfficial(M, o) {
@@ -112,7 +112,7 @@
       const h = V(s * 0.1, 0.36, 0.15); put(g, ball(0.05, M.skin, 14), h.x, h.y, h.z); return h;
     });
     const hd = head(g, M, 0.8, o);
-    return { g, head: hd, hand: hands };
+    return { g, head: hd, hand: hands, arm: [g, g], hl: hands };
   }
 
   /* ---------- headgear ---------- */
@@ -212,7 +212,7 @@
       [-1, 1].forEach(d => { const l = put(g, rbox(0.06, 0.62, 0.06, M.wood, 0.02), s * 0.19, 0.36, d * 0.12); l.rotation.x = -d * 0.38; });
     });
     put(g, cyl(0.03, 0.03, 0.46, M.trim, 10), 0, 0.66, 0).rotation.z = Math.PI / 2;
-    const arm = new THREE.Group(); arm.position.set(0, 0.66, 0); arm.rotation.x = -0.85; g.add(arm);
+    const arm = new THREE.Group(); arm.position.set(0, 0.66, 0); arm.rotation.x = -0.85; g.add(arm); g.userData.arm = arm;
     put(arm, rbox(0.06, 0.9, 0.06, M.wood, 0.02), 0, 0.2, 0);
     const cw = put(arm, rbox(0.2, 0.18, 0.2, M.clothDark, 0.05), 0, -0.24, 0);
     if (beast) [-1, 1].forEach(s => put(arm, ball(0.02, M.plume, 8), s * 0.05, -0.21, 0.1));   /* 楚: the counterweight has angry red eyes */
@@ -330,13 +330,17 @@
     const gear = new THREE.Group(); gear.position.set(0, y - 0.01, 0); gear.scale.setScalar(0.64); g.add(gear);
     return gear;
   }
+  /* the arms hang from shoulder joints, so a weapon or shield held in the hand moves with the arm when it strikes */
   function brickArms(g, M, armMat) {
-    return [-1, 1].map(s => {
-      const arm = put(g, rbox(0.09, 0.26, 0.11, armMat, 0.035), s * 0.21, 0.53, 0.02); arm.rotation.z = s * 0.18; arm.rotation.x = -0.25;
-      const hand = put(g, new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.02, 8, 16, Math.PI * 1.5), new THREE.MeshStandardMaterial({ color: YELLOW, roughness: 0.35 })), s * 0.25, 0.4, 0.1);
+    const arms = [], local = [], hands = [];
+    [-1, 1].forEach(s => {
+      const pivot = new THREE.Group(); pivot.position.set(s * 0.19, 0.6, 0.0); g.add(pivot);
+      const arm = put(pivot, rbox(0.09, 0.26, 0.11, armMat, 0.035), s * 0.02, -0.07, 0.02); arm.rotation.z = s * 0.18; arm.rotation.x = -0.25;
+      const hand = put(pivot, new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.02, 8, 16, Math.PI * 1.5), new THREE.MeshStandardMaterial({ color: YELLOW, roughness: 0.35 })), s * 0.06, -0.2, 0.1);
       hand.rotation.set(Math.PI / 2, 0, Math.PI * 0.75);
-      return V(s * 0.25, 0.4, 0.1);
+      arms.push(pivot); local.push(V(s * 0.06, -0.2, 0.1)); hands.push(V(s * 0.25, 0.4, 0.1));
     });
+    return { arms, local, hands };
   }
   function brickPerson(M, o) {
     const g = new THREE.Group(); o = o || {};
@@ -347,7 +351,7 @@
     const body = o.armour ? M.armour : side;
     put(g, trapezoid(0.29, 0.38, 0.3, 0.19, [body, body, body, body, front, body]), 0, 0.48, 0);
     if (o.armour) [-1, 1].forEach(s => { const p = put(g, rbox(0.14, 0.05, 0.2, M.armour, 0.02), s * 0.15, 0.63, 0); p.rotation.z = -s * 0.25; });
-    const hands = brickArms(g, M, o.armour ? M.armour : side);
+    const A = brickArms(g, M, o.armour ? M.armour : side), hands = A.hands;
     const head = brickHead(g, M, 0.77, o);
     if (o.cape) {
       const geo = new THREE.PlaneGeometry(0.4, 0.55, 6, 6), p = geo.attributes.position;
@@ -355,7 +359,7 @@
       geo.computeVertexNormals();
       put(g, new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: o.cape, roughness: 0.6, side: THREE.DoubleSide })), 0, 0.36, -0.12);
     }
-    return { g, head, hand: hands };
+    return { g, head, hand: hands, arm: A.arms, hl: A.local };
   }
   function brickOfficial(M, o) {
     const g = new THREE.Group();
@@ -363,31 +367,32 @@
     put(g, rbox(0.08, 0.3, 0.02, M.trim, 0.006), 0, 0.17, 0.125);
     const front = new THREE.MeshStandardMaterial({ map: torsoTex(M, { print: 'robe', emblem: true }), roughness: 0.45 });
     put(g, trapezoid(0.29, 0.38, 0.3, 0.19, [M.cloth, M.cloth, M.cloth, M.cloth, front, M.cloth]), 0, 0.48, 0);
-    const hands = brickArms(g, M, M.cloth);
+    const A = brickArms(g, M, M.cloth), hands = A.hands;
     [-1, 1].forEach(s => { const sl = put(g, cyl(0.07, 0.1, 0.12, M.cloth, 14), s * 0.25, 0.44, 0.08); sl.rotation.x = -0.4; });   /* wide sleeve cuffs */
     const head = brickHead(g, M, 0.77, o);
-    return { g, head, hand: hands };
+    return { g, head, hand: hands, arm: A.arms, hl: A.local };
   }
   const person = (M, o) => BRICK ? brickPerson(M, o) : chibiPerson(M, o);
   const official = (M, o) => BRICK ? brickOfficial(M, o) : chibiOfficial(M, o);
 
   function figure(side, t) {
     const M = mats(side), chu = side === 'b', g = new THREE.Group();
+    let rig = { kind: 'lunge' };   /* how this piece attacks: swing, thrust, throw, or (no weapon arm) a lunge */
     put(g, cyl(0.37, 0.39, 0.07, M.base, 32), 0, 0.035, 0);
     put(g, new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.018, 8, 40), M.trim), 0, 0.07, 0).rotation.x = Math.PI / 2;
     const on = (c, y, s) => { c.position.y = y; if (s) c.scale.setScalar(s); g.add(c); return c; };
     if (t === 'K') {
       if (chu) {   /* 項羽: fierce brows, a cocky smirk, plumed helmet, crimson cape, the great halberd */
         const k = person(M, { armour: true, bulk: 1.15, brow: 'fierce', mouth: 'smirk', cape: '#C8323E' }); on(k.g, 0.07, 1.12);
-        helmet(k.head, M, 0.32, true); pole(k.g, M, k.hand[0], 1.3, 'halberd');
+        helmet(k.head, M, 0.32, true); pole(k.arm[0], M, k.hl[0], 1.3, 'halberd'); rig = { arm: k.arm[0], kind: 'swing' };
       } else {   /* 劉邦: calm smile, moustache and goatee, the 冕 crown, a blue cape, a gold sceptre */
         const k = person(M, { bulk: 1.1, brow: 'calm', mouth: 'smile', beard: true, moustache: true, cape: '#2A4590' }); on(k.g, 0.07, 1.12);
-        mian(k.head, M); pole(k.g, M, k.hand[0], 0.75, 'sceptre');
+        mian(k.head, M); pole(k.arm[0], M, k.hl[0], 0.75, 'sceptre'); rig = { arm: k.arm[0], kind: 'thrust' };
       }
     } else if (t === 'A') {
       if (chu) {   /* 范增: the old strategist with a long white beard, leaning on his staff */
         const o = official(M, { old: true, brow: 'calm', mouth: 'smirk', beard: 'long' }); on(o.g, 0.07);
-        cap(o.head, M, 0.12); pole(o.g, M, o.hand[0], 1.0, 'staff');
+        cap(o.head, M, 0.12); pole(o.arm[0], M, o.hl[0], 1.0, 'staff'); rig = { arm: o.arm[0], kind: 'swing' };
       } else {   /* 張良: the young strategist with a feather fan */
         const o = official(M, { brow: 'kind', mouth: 'smirk' }); on(o.g, 0.07);
         cap(o.head, M, 0.18);
@@ -404,19 +409,19 @@
     } else if (t === 'R') {
       on(chariot(M), 0.07).position.z = -0.14;
       const w = person(M, { armour: true, brow: 'fierce', mouth: chu ? 'shout' : 'grin', beard: 'full' }); on(w.g, 0.07, 0.85).position.z = 0.12;
-      if (chu) { helmet(w.head, M, 0); horns(w.head, M); pole(w.g, M, w.hand[0], 1.3, 'glaive'); }
-      else { helmet(w.head, M, 0.14); pole(w.g, M, w.hand[0], 1.3, 'spear'); shield(w.g, M, w.hand[1], true); }
+      if (chu) { helmet(w.head, M, 0); horns(w.head, M); pole(w.arm[0], M, w.hl[0], 1.3, 'glaive'); rig = { arm: w.arm[0], kind: 'swing' }; }
+      else { helmet(w.head, M, 0.14); pole(w.arm[0], M, w.hl[0], 1.3, 'spear'); shield(w.arm[1], M, w.hl[1], true); rig = { arm: w.arm[0], kind: 'thrust' }; }
     } else if (t === 'N') {
       on(horse(M, chu), 0.07);
       const r = person(M, { armour: true, brow: chu ? 'fierce' : 'calm', mouth: chu ? 'grin' : 'smirk', moustache: !chu }); on(r.g, 0.6, 0.6).position.z = -0.04;
-      helmet(r.head, M, 0.2); pole(r.g, M, r.hand[0], 1.5, 'spear');
+      helmet(r.head, M, 0.2); pole(r.arm[0], M, r.hl[0], 1.5, 'spear'); rig = { arm: r.arm[0], kind: 'thrust' };
     } else if (t === 'C') {
-      on(trebuchet(M, chu), 0.07);
+      const tb = on(trebuchet(M, chu), 0.07); rig = { arm: tb.userData.arm, kind: 'throw' };
     } else {   /* the foot soldier: the smallest toy, earnest and brave */
       const p = person(M, { armour: true, brow: 'fierce', mouth: 'smile' }); on(p.g, 0.07, 0.85);
-      helmet(p.head, M, 0.1); pole(p.g, M, p.hand[0], 1.15, chu ? 'ge' : 'ji'); shield(p.g, M, p.hand[1], chu);
+      helmet(p.head, M, 0.1); pole(p.arm[0], M, p.hl[0], 1.15, chu ? 'ge' : 'ji'); shield(p.arm[1], M, p.hl[1], chu); rig = { arm: p.arm[0], kind: chu ? 'swing' : 'thrust' };
     }
-    g.userData.stone = { glowMat: M.glow, glow: 0 };
+    g.userData.stone = { glowMat: M.glow, glow: 0, rig, rest: rig.arm ? rig.arm.rotation.x : 0 };
     return g;
   }
 

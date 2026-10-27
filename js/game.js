@@ -116,7 +116,7 @@
       const p = board[r][f]; if (!p) continue;
       const outer = new THREE.Group(), orient = new THREE.Group(), tilt = new THREE.Group();
       outer.add(orient);
-      if (p.side === 'r' && !stone) orient.rotation.y = Math.PI;   /* red faces -z (toward black), black faces +z; the statues all face the player so their faces show */
+      if (p.side === 'r') orient.rotation.y = Math.PI;   /* red faces -z (toward black), black faces +z: the two armies face each other */
       if (paper) { /* a soft watercolor pool under the paper doll, instead of a solid base that hides her feet */
         const pool = new THREE.Mesh(new THREE.CircleGeometry(0.4, 40), new THREE.MeshBasicMaterial({ color: p.side === 'r' ? '#C9B89A' : '#8E8CCB', transparent: true, opacity: p.side === 'r' ? 0.4 : 0.5, depthWrite: false }));
         pool.rotation.x = -Math.PI / 2; pool.position.y = 0.015; orient.add(pool);
@@ -571,9 +571,11 @@
     await tw(D(dur), t => {
       const e = es(t);
       o.position.set(sx + (ex - sx) * e, sy * (1 - e) + Math.sin(Math.PI * t) * arc, sz + (ez - sz) * e);
+      if (stone && victim) XQStone.strike(vis[p.id].fig, t);   /* the attacker strikes as it arrives */
       if (victim && !popped && t > 0.62) { popped = true; pop(); }
     });
     if (victim && !popped) pop();
+    if (stone && victim) XQStone.strike(vis[p.id].fig, 1);
     o.position.set(ex, 0, ez); if (!victim) sfx('move');
     if (stone) XQStone.thud(ex, ez, !!victim);
 
@@ -1063,6 +1065,8 @@
     tick(ms) { const t0 = performance.now(); for (let k = 1; k <= Math.ceil(ms / 50); k++) frame(t0 + k * 50 + 100000); },
     select(f, r) { select(f, r); },
     /* tap the middle of every visible card on screen and report which piece each tap selected */
+    pose(f, r, t) { const p = board[r][f]; if (p && stone) XQStone.strike(vis[p.id].fig, t); },   /* show a piece at point t of its attack */
+    home() { atHome = true; },
     cam(px, py, pz, tx, ty, tz) { atHome = false; camera.position.set(px, py, pz); target.set(tx, ty, tz); camera.lookAt(target); },
     setView(m) { viewMode = m; showView(); const h = homeView(viewSide); camera.position.copy(h.pos); target.copy(h.look); camera.lookAt(target); },
     tapAll() {
