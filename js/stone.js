@@ -406,7 +406,7 @@
       const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; draw();
       if (document.fonts) document.fonts.load(g.font, txt).then(draw, () => {});
       const side = plastic('#F4EEDC');
-      const m = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.6), [side, side, new THREE.MeshStandardMaterial({ map: t, roughness: 0.35 }), side, side, side]), x, 0.0, 0);
+      const m = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.6), [side, side, new THREE.MeshStandardMaterial({ map: t, roughness: 0.35 }), side, side, side]), x, 0.03, 0);
       if (flip) m.rotation.y = Math.PI;
     };
     printed('楚 河', -2.2, false); printed('漢 界', 2.2, false);
