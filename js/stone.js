@@ -453,9 +453,15 @@
     const S = fig.userData.stone; if (!S || S.glow <= 0) return;
     S.glow = Math.max(0, S.glow - dt * 0.6);
     S.glowMat.emissiveIntensity = 0.9 + 2.2 * S.glow;
+    if (window.XQToy && !/[?&]golem/.test(location.search)) {   /* a toy wakes with a hop and a quick twist, like a figure picked up */
+      const t = 1 - S.glow, k = Math.min(1, t / 0.32);
+      fig.position.y = t < 0.32 ? Math.sin(k * Math.PI) * 0.18 : 0;
+      fig.rotation.y = t < 0.32 ? Math.sin(k * Math.PI * 2) * 0.35 : 0;
+      fig.rotation.z = t < 0.32 ? Math.sin(k * Math.PI) * 0.06 : 0;
+    }
   }
 
   /* the toy look (js/toy.js) is the current experiment; ?golem shows the rock golems instead */
   const toy = !!window.XQToy && !/[?&]golem/.test(location.search);
-  window.XQStone = { figure: toy ? XQToy.figure : figure, hall, glow, thud, shatter, update, updateFig, BADGE_Y: toy ? XQToy.BADGE_Y : BADGE_Y, toy };
+  window.XQStone = { figure: toy ? XQToy.figure : figure, hall, glow, thud, shatter, update, updateFig, BADGE_Y: toy ? XQToy.BADGE_Y : BADGE_Y, toy, pieces: () => live.filter(L => L.kind === 'chunk').length };
 })();

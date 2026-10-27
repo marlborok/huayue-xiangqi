@@ -135,16 +135,37 @@
   function pole(g, M, at, len, top) {
     put(g, cyl(0.022, 0.022, len, M.wood, 10), at.x, at.y + len * 0.4, at.z);
     const y = at.y + len * 0.9;
-    if (top === 'halberd') {   /* 項羽's great halberd: a broad gold-edged blade */
-      put(g, rbox(0.04, 0.32, 0.2, M.metal, 0.015), at.x, y, at.z + 0.1);
-      put(g, rbox(0.05, 0.34, 0.04, M.trim, 0.015), at.x, y, at.z + 0.21);
-      put(g, cone(0.04, 0.14, M.metal, 10), at.x, y + 0.22, at.z);
-    } else if (top === 'glaive') { const b = put(g, rbox(0.035, 0.3, 0.12, M.metal, 0.015), at.x, y, at.z + 0.05); b.rotation.x = 0.2; }
+    if (top === 'halberd' || top === 'glaive') {   /* 項羽's great blade (龍且's glaive is a smaller one): see bladeOn */
+      bladeOn(g, M, at, y, top === 'halberd' ? 1 : 0.8, top === 'halberd');
+    }
     else if (top === 'ji') { put(g, cone(0.035, 0.15, M.metal, 10), at.x, y + 0.08, at.z); put(g, rbox(0.025, 0.06, 0.13, M.metal, 0.01), at.x, y - 0.03, at.z + 0.07); }
     else if (top === 'ge') put(g, rbox(0.025, 0.05, 0.18, M.metal, 0.01), at.x, y, at.z + 0.09);
     else if (top === 'sceptre') { put(g, ball(0.06, M.trim, 14), at.x, y, at.z); put(g, cone(0.045, 0.1, M.trim, 10), at.x, y + 0.08, at.z); }
     else if (top === 'staff') { const k = put(g, new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.02, 8, 14, Math.PI * 1.4), M.wood), at.x, y + 0.04, at.z); k.rotation.y = Math.PI / 2; }
     else put(g, cone(0.035, 0.15, M.metal, 10), at.x, y + 0.08, at.z);
+  }
+  /* a curved broad blade like a 大刀, flat to the viewer and swept away from the body, with a gold collar and
+   * (for 項羽) a gold back edge and a crimson tassel */
+  function bladeOn(g, M, at, y, k, grand) {
+    const sh = new THREE.Shape();
+    sh.moveTo(0, -0.07); sh.lineTo(0.05, -0.08);
+    sh.quadraticCurveTo(0.21, -0.03, 0.21, 0.15);
+    sh.quadraticCurveTo(0.2, 0.31, 0.05, 0.41);
+    sh.quadraticCurveTo(0.09, 0.22, 0, 0.12); sh.closePath();
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1, curveSegments: 10 });
+    geo.translate(0, 0, -0.01);
+    const out = at.x >= 0 ? 1 : -1;
+    const b = put(g, new THREE.Mesh(geo, M.metal), at.x + out * 0.015, y - 0.1 * k, at.z);
+    b.scale.set(out * k, k, 1);
+    if (grand) {
+      const edge = new THREE.Shape(); edge.moveTo(0.05, -0.08); edge.quadraticCurveTo(0.21, -0.03, 0.21, 0.15); edge.quadraticCurveTo(0.2, 0.31, 0.05, 0.41);
+      edge.quadraticCurveTo(0.17, 0.28, 0.18, 0.14); edge.quadraticCurveTo(0.17, 0.0, 0.05, -0.04); edge.closePath();
+      const eg = new THREE.ExtrudeGeometry(edge, { depth: 0.05, bevelEnabled: false, curveSegments: 10 }); eg.translate(0, 0, -0.025);
+      const e = put(g, new THREE.Mesh(eg, M.trim), at.x + out * 0.015, y - 0.1 * k, at.z); e.scale.set(out * k, k, 1);
+      put(g, cone(0.03, 0.12, M.plume, 10), at.x, y - 0.16, at.z).rotation.x = Math.PI;   /* the tassel */
+    }
+    put(g, cyl(0.032, 0.032, 0.06, M.trim, 12), at.x, y - 0.12 * k, at.z);   /* collar */
+    put(g, cone(0.025, 0.1, M.metal, 10), at.x, y + 0.04, at.z);           /* spike on top of the shaft */
   }
   function shield(g, M, at, round) {
     const s = round ? cyl(0.15, 0.15, 0.04, M.clothDark, 24) : rbox(0.24, 0.3, 0.04, M.cloth, 0.03);
