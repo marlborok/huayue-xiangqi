@@ -1,4 +1,4 @@
-/* 楚漢石棋 — the toy look (explore-3d experiment): chunky chibi figures like painted vinyl toys,
+/* 楚漢石棋 — the toy look (explore-3d experiment): brick figures by default (?chibi: round chibi vinyl toys),
  * built in code from rounded shapes. Big heads, dot eyes and blush, short limbs; who is who is told by
  * outfit, headgear and weapon rather than by a detailed face. Same cast as docs/石棋角色設計.md.
  *
@@ -17,7 +17,7 @@
     const C = ARMY[side];
     const m = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.55, metalness: 0 }, o || {}));
     return {
-      skin: m('#F6CDA8'), blush: m('#F29A9A', { roughness: 0.8 }), ink: m('#2A2228', { roughness: 0.4 }), white: m('#FFFFFF', { roughness: 0.3 }),
+      colors: C, skin: m('#F6CDA8'), blush: m('#F29A9A', { roughness: 0.8 }), ink: m('#2A2228', { roughness: 0.4 }), white: m('#FFFFFF', { roughness: 0.3 }),
       hair: m('#2B2420'), hairWhite: m('#ECE9E4'), beard: m(side === 'b' ? '#ECE9E4' : '#4A3426'),
       cloth: m(C.cloth), clothDark: m(C.clothDark), trim: m(C.trim, { roughness: 0.35, metalness: 0.3 }), plume: m(C.plume),
       armour: m(C.armour, { roughness: 0.45, metalness: 0.2 }), metal: m('#B9C0C8', { roughness: 0.3, metalness: 0.5 }),
@@ -73,7 +73,7 @@
 
   /* ---------- bodies ---------- */
   /* a chunky toy soldier: short legs, a rounded torso, short arms, a big head */
-  function person(M, o) {
+  function chibiPerson(M, o) {
     const g = new THREE.Group(); o = o || {};
     const bulk = o.bulk || 1;
     [-1, 1].forEach(s => {
@@ -102,7 +102,7 @@
     return { g, head: hd, hand: hands };
   }
   /* an official: a long robe and wide sleeves instead of legs and armour */
-  function official(M, o) {
+  function chibiOfficial(M, o) {
     const g = new THREE.Group();
     put(g, lathe([[0.2, 0], [0.21, 0.03], [0.18, 0.3], [0.15, 0.55], [0.12, 0.62]], M.cloth), 0, 0, 0);
     put(g, cyl(0.15, 0.16, 0.05, M.trim, 20), 0, 0.4, 0);
@@ -217,6 +217,138 @@
     put(g, rbox(0.24, 0.08, 0.04, M.cloth, 0.015), 0, 0.82, 0.42);   /* head plate */
     return g;
   }
+
+
+  /* ---------- the brick-figure look (default; ?chibi shows the round chibi toys) ----------
+   * A cylinder head with a stud and a printed face, a trapezoid torso with a printed outfit, C-shaped hands,
+   * blocky legs. Faces and outfits are painted on canvases, so brows, beards and expressions carry the character. */
+  const BRICK = !/[?&]chibi/.test(location.search);
+  const YELLOW = '#F5C842';
+  function canvasTex(w, h, draw) {
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const c = cv.getContext('2d'); draw(c);
+    const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; if (window.XQLook) t.encoding = THREE.sRGBEncoding; return t;
+  }
+  /* the printed face, centred on the front of the head (the head's texture seam is at the back) */
+  function faceTex(o) {
+    return canvasTex(512, 256, c => {
+      c.fillStyle = YELLOW; c.fillRect(0, 0, 512, 256);
+      const ink = '#1E1A1C', hairC = o.old ? '#BDB7AE' : '#1E1A1C', beardC = o.old ? '#EEEAE2' : (o.beardColor || '#4A3020');
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      [-1, 1].forEach(s => {   /* eyes with a highlight */
+        c.fillStyle = ink; c.beginPath(); c.ellipse(256 + s * 30, 118, 9, 12, 0, 0, 7); c.fill();
+        c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(256 + s * 30 + 3, 113, 3.2, 0, 7); c.fill();
+      });
+      c.strokeStyle = hairC; c.lineWidth = 7;   /* brows carry the mood */
+      [-1, 1].forEach(s => {
+        const x0 = 256 + s * 16, x1 = 256 + s * 46, y = 94;
+        c.beginPath();
+        if (o.brow === 'fierce') { c.moveTo(x0, y + 6); c.lineTo(x1, y - 6); }
+        else if (o.brow === 'kind') { c.moveTo(x0, y - 4); c.quadraticCurveTo((x0 + x1) / 2, y - 9, x1, y + 2); }
+        else { c.moveTo(x0, y); c.lineTo(x1, y - 2); }
+        c.stroke();
+      });
+      if (o.lines) { c.strokeStyle = 'rgba(30,26,28,0.45)'; c.lineWidth = 2.5; [-1, 1].forEach(s => { c.beginPath(); c.moveTo(256 + s * 52, 124); c.lineTo(256 + s * 60, 132); c.stroke(); }); }   /* the old man's crow's feet */
+      if (o.blush) { c.fillStyle = 'rgba(240,120,110,0.35)'; [-1, 1].forEach(s => { c.beginPath(); c.ellipse(256 + s * 50, 146, 12, 7, 0, 0, 7); c.fill(); }); }
+      /* beard drawn before the mouth, so the mouth sits on top of it */
+      c.fillStyle = beardC;
+      if (o.beard === 'full') { c.beginPath(); c.moveTo(200, 130); c.quadraticCurveTo(205, 205, 256, 215); c.quadraticCurveTo(307, 205, 312, 130); c.quadraticCurveTo(300, 175, 256, 178); c.quadraticCurveTo(212, 175, 200, 130); c.fill(); }
+      else if (o.beard === 'long') { c.beginPath(); c.moveTo(228, 170); c.quadraticCurveTo(256, 256, 284, 170); c.closePath(); c.fill(); }
+      else if (o.beard) { c.beginPath(); c.moveTo(244, 176); c.lineTo(256, 205); c.lineTo(268, 176); c.closePath(); c.fill(); }
+      if (o.moustache || o.beard === 'full' || o.beard === 'long') {
+        c.strokeStyle = beardC; c.lineWidth = 6;
+        [-1, 1].forEach(s => { c.beginPath(); c.moveTo(256, 150); c.quadraticCurveTo(256 + s * 18, 146, 256 + s * 30, 160); c.stroke(); });
+      }
+      c.strokeStyle = ink; c.fillStyle = ink; c.lineWidth = 5;
+      if (o.mouth === 'grin') { c.beginPath(); c.moveTo(228, 156); c.quadraticCurveTo(256, 190, 284, 156); c.closePath(); c.fill(); c.fillStyle = '#FFFFFF'; c.fillRect(236, 157, 40, 7); }
+      else if (o.mouth === 'smirk') { c.beginPath(); c.moveTo(238, 164); c.quadraticCurveTo(262, 172, 282, 154); c.stroke(); }
+      else if (o.mouth === 'shout') { c.beginPath(); c.ellipse(256, 168, 16, 13, 0, 0, 7); c.fill(); c.fillStyle = '#C0393B'; c.beginPath(); c.ellipse(256, 174, 9, 5, 0, 0, 7); c.fill(); }
+      else { c.beginPath(); c.arc(256, 150, 20, 0.35, Math.PI - 0.35); c.stroke(); }
+    });
+  }
+  /* the printed front of the torso: armour scales, or a robe's crossed collar and sash */
+  function torsoTex(M, o) {
+    const A = M.colors;
+    return canvasTex(256, 256, c => {
+      c.fillStyle = o.print === 'armour' ? A.armour : A.cloth; c.fillRect(0, 0, 256, 256);
+      if (o.print === 'armour') {
+        for (let y = 40; y < 200; y += 22) for (let x = 40 + ((y / 22) % 2) * 12; x < 220; x += 26) {
+          c.fillStyle = 'rgba(0,0,0,0.18)'; c.beginPath(); c.roundRect ? c.roundRect(x, y, 22, 18, 5) : c.rect(x, y, 22, 18); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(x + 3, y + 2, 16, 4);
+        }
+        c.fillStyle = A.cloth; c.fillRect(0, 0, 256, 34);   /* collar */
+        c.fillStyle = A.trim; c.beginPath(); c.arc(128, 120, 26, 0, 7); c.fill();   /* the chest disc */
+        c.fillStyle = A.cloth; c.beginPath(); c.arc(128, 120, 16, 0, 7); c.fill();
+      } else {
+        c.strokeStyle = '#F4EEDC'; c.lineWidth = 16; c.beginPath(); c.moveTo(70, 0); c.lineTo(150, 150); c.stroke();
+        c.strokeStyle = A.trim; c.lineWidth = 6; c.beginPath(); c.moveTo(186, 0); c.lineTo(110, 150); c.stroke();
+        if (o.emblem) { c.strokeStyle = A.trim; c.lineWidth = 5; c.beginPath(); c.arc(170, 95, 24, 0, 7); c.stroke(); c.beginPath(); c.arc(170, 95, 10, 0, 7); c.stroke(); }
+      }
+      c.fillStyle = A.trim; c.fillRect(0, 214, 256, 30);   /* belt */
+      c.fillStyle = A.clothDark; c.fillRect(112, 210, 32, 38);
+    });
+  }
+  function trapezoid(wTop, wBot, h, d, mats) {
+    const g = new THREE.BoxGeometry(wBot, h, d), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) if (p.getY(i) > 0) p.setX(i, p.getX(i) * wTop / wBot);
+    g.computeVertexNormals();
+    return new THREE.Mesh(g, mats);
+  }
+  /* the head: a printed cylinder with a stud on top and a hair piece; returns the group gear is attached to,
+   * scaled so the chibi helmets and crowns fit the smaller head */
+  function brickHead(g, M, y, o) {
+    const skin = new THREE.MeshStandardMaterial({ color: YELLOW, roughness: 0.35 });
+    put(g, cyl(0.055, 0.055, 0.04, skin, 16), 0, y - 0.13, 0);   /* neck */
+    put(g, new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.22, 32, 1, false, Math.PI, Math.PI * 2),
+      [new THREE.MeshStandardMaterial({ map: faceTex(o), roughness: 0.35 }), skin, skin]), 0, y, 0);
+    put(g, cyl(0.065, 0.065, 0.05, skin, 20), 0, y + 0.13, 0);   /* the stud */
+    if (o.hair !== false) {
+      const hair = put(g, new THREE.Mesh(new THREE.SphereGeometry(0.135, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), o.old ? M.hairWhite : M.hair), 0, y + 0.06, -0.01);
+      hair.scale.set(1, 0.75, 1);
+      put(g, rbox(0.25, 0.12, 0.06, o.old ? M.hairWhite : M.hair, 0.025), 0, y + 0.02, -0.1);   /* hair at the back */
+    }
+    const gear = new THREE.Group(); gear.position.set(0, y - 0.01, 0); gear.scale.setScalar(0.64); g.add(gear);
+    return gear;
+  }
+  function brickArms(g, M, armMat) {
+    return [-1, 1].map(s => {
+      const arm = put(g, rbox(0.09, 0.26, 0.11, armMat, 0.035), s * 0.21, 0.53, 0.02); arm.rotation.z = s * 0.18; arm.rotation.x = -0.25;
+      const hand = put(g, new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.02, 8, 16, Math.PI * 1.5), new THREE.MeshStandardMaterial({ color: YELLOW, roughness: 0.35 })), s * 0.25, 0.4, 0.1);
+      hand.rotation.set(Math.PI / 2, 0, Math.PI * 0.75);
+      return V(s * 0.25, 0.4, 0.1);
+    });
+  }
+  function brickPerson(M, o) {
+    const g = new THREE.Group(); o = o || {};
+    const side = M.cloth, legs = M.clothDark;
+    [-1, 1].forEach(s => { put(g, rbox(0.17, 0.27, 0.2, legs, 0.02), s * 0.088, 0.135, 0.005); put(g, rbox(0.17, 0.05, 0.06, legs, 0.015), s * 0.088, 0.025, 0.11); });
+    put(g, rbox(0.36, 0.06, 0.2, legs, 0.015), 0, 0.3, 0);   /* hips */
+    const front = new THREE.MeshStandardMaterial({ map: torsoTex(M, { print: o.armour ? 'armour' : 'robe', emblem: o.emblem }), roughness: 0.45 });
+    const body = o.armour ? M.armour : side;
+    put(g, trapezoid(0.29, 0.38, 0.3, 0.19, [body, body, body, body, front, body]), 0, 0.48, 0);
+    if (o.armour) [-1, 1].forEach(s => { const p = put(g, rbox(0.14, 0.05, 0.2, M.armour, 0.02), s * 0.15, 0.63, 0); p.rotation.z = -s * 0.25; });
+    const hands = brickArms(g, M, o.armour ? M.armour : side);
+    const head = brickHead(g, M, 0.77, o);
+    if (o.cape) {
+      const geo = new THREE.PlaneGeometry(0.4, 0.55, 6, 6), p = geo.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -Math.cos(x * 5) * 0.03 - (0.27 - y) * 0.12); }
+      geo.computeVertexNormals();
+      put(g, new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: o.cape, roughness: 0.6, side: THREE.DoubleSide })), 0, 0.36, -0.12);
+    }
+    return { g, head, hand: hands };
+  }
+  function brickOfficial(M, o) {
+    const g = new THREE.Group();
+    put(g, trapezoid(0.36, 0.44, 0.33, 0.24, M.cloth), 0, 0.165, 0);   /* the long robe in place of legs */
+    put(g, rbox(0.08, 0.3, 0.02, M.trim, 0.006), 0, 0.17, 0.125);
+    const front = new THREE.MeshStandardMaterial({ map: torsoTex(M, { print: 'robe', emblem: true }), roughness: 0.45 });
+    put(g, trapezoid(0.29, 0.38, 0.3, 0.19, [M.cloth, M.cloth, M.cloth, M.cloth, front, M.cloth]), 0, 0.48, 0);
+    const hands = brickArms(g, M, M.cloth);
+    [-1, 1].forEach(s => { const sl = put(g, cyl(0.07, 0.1, 0.12, M.cloth, 14), s * 0.25, 0.44, 0.08); sl.rotation.x = -0.4; });   /* wide sleeve cuffs */
+    const head = brickHead(g, M, 0.77, o);
+    return { g, head, hand: hands };
+  }
+  const person = (M, o) => BRICK ? brickPerson(M, o) : chibiPerson(M, o);
+  const official = (M, o) => BRICK ? brickOfficial(M, o) : chibiOfficial(M, o);
 
   function figure(side, t) {
     const M = mats(side), chu = side === 'b', g = new THREE.Group();
