@@ -272,6 +272,7 @@
   /* ---------- the hall ---------- */
   let scene = null, torches = [], water = null, motes = null;
   const live = [];   /* chunks and dust puffs */
+  const anims = [];  /* per-frame scenery motion (banners) */
   const BANK = 0.38, EDGE = 5.3, PX = 90;
 
   function slabTexture(side) {
@@ -411,6 +412,84 @@
     };
     printed('楚 河', -2.2, false); printed('漢 界', 2.2, false);
 
+    /* ---------- camps and scenery, all bricks, kept outside the board and low on the near side so nothing hides a piece ----------
+     * a brick: a box whose top carries studs (added to the instanced studs below) */
+    const brick = (w, h, d, col, x, y, z, studsOn) => {
+      const m = add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), plastic(col)), x, y + h / 2, z);
+      if (studsOn !== false) for (let i = 0; i < Math.max(1, Math.round(w / PITCH)); i++) for (let k = 0; k < Math.max(1, Math.round(d / PITCH)); k++)
+        studs.push([x - w / 2 + PITCH * (i + 0.5), z - d / 2 + PITCH * (k + 0.5), col, y + h]);
+      return m;
+    };
+    const flag = (ch, cloth, ink, x, z, h) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, h, 8), plastic('#5A4636')), x, -PLATE + h / 2, z);
+      const cv = document.createElement('canvas'); cv.width = 256; cv.height = 192; const g = cv.getContext('2d');
+      const paint = () => { g.fillStyle = cloth; g.fillRect(0, 0, 256, 192); g.fillStyle = ink; g.font = 'bold 130px "LXGW WenKai TC", "Noto Sans TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, 128, 100); t.needsUpdate = true; };
+      const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; paint();
+      if (document.fonts) document.fonts.load('bold 130px "LXGW WenKai TC"', ch).then(paint, () => {});
+      const f = add(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.46, 0.03), [plastic(cloth), plastic(cloth), plastic(cloth), plastic(cloth), new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 }), plastic(cloth)]), x + 0.33, -PLATE + h - 0.26, z);
+      f.castShadow = true;
+      waves.push({ o: f, ph: rnd(0, 6) });
+    };
+    const waves = [];
+    const G = -PLATE;   /* the table top */
+
+    /* 漢: a low city wall with crenellations and a gate behind the near edge, two gate towers and blue banners */
+    const HAN = '#D9CBB0', HAN_DARK = '#B4A27E', BLUE = '#3D63C9';
+    for (let x = -5.25; x <= 5.26; x += 0.5) {
+      if (Math.abs(x) < 0.8) continue;   /* the gate opening */
+      brick(0.5, 0.36, 0.4, (Math.round(x * 2) % 2) ? HAN : HAN_DARK, x, G, 6.25, false);
+      if (Math.round(x * 2) % 2) brick(0.25, 0.16, 0.4, HAN, x, G + 0.36, 6.25);   /* merlons */
+    }
+    [-1, 1].forEach(s => {   /* gate towers kept low: this side faces the players */
+      brick(0.6, 0.55, 0.6, HAN_DARK, s * 1.05, G, 6.25);
+      brick(0.7, 0.08, 0.7, BLUE, s * 1.05, G + 0.55, 6.25);
+    });
+    brick(1.5, 0.12, 0.5, BLUE, 0, G + 0.4, 6.25);   /* the gate lintel */
+    [-5.6, 5.6].forEach(x => flag('漢', BLUE, '#F2C14E', x, 5.9, 1.5));
+
+    /* 楚: tents and a watchtower beyond the far edge, a dark palisade, crimson banners */
+    const SLATE = '#4A4652', RED = '#C8323E';
+    for (let x = -5.0; x <= 5.01; x += 0.5) brick(0.4, 0.45, 0.3, SLATE, x, G, -6.0, false);
+    for (let x = -5.0; x <= 5.01; x += 0.5) add(new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.2, 4), plastic(SLATE)), x, G + 0.55, -6.0).rotation.y = Math.PI / 4;   /* sharpened stakes */
+    [[-3.4, -7.3], [-1.2, -7.6], [1.3, -7.4], [3.5, -7.2]].forEach(([x, z], i) => {
+      brick(1.1, 0.5, 1.0, i % 2 ? RED : '#2B2733', x, G, z, false);
+      const roof = add(new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.75, 4), plastic(i % 2 ? '#2B2733' : RED)), x, G + 0.5 + 0.37, z); roof.rotation.y = Math.PI / 4;
+      brick(0.3, 0.32, 0.05, '#1E1A1C', x, G, z + 0.5, false);   /* tent door */
+    });
+    /* the watchtower: four posts, a platform and a little roof */
+    [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]].forEach(([dx, dz]) => brick(0.12, 2.0, 0.12, '#6B4A30', 5.4 + dx, G, -8.2 + dz, false));
+    brick(0.9, 0.12, 0.9, SLATE, 5.4, G + 2.0, -8.2);
+    add(new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.55, 4), plastic(RED)), 5.4, G + 2.55, -8.2).rotation.y = Math.PI / 4;
+    [-5.6, 0, 5.6].forEach(x => flag('楚', RED, '#1E1A1C', x, -6.4, 1.7));
+
+    /* the land around: green baseplates with brick trees, rocks, flowers and torches at the board's corners */
+    [-1, 1].forEach(s => {
+      const gp = add(new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 15), plastic('#5DAE5A')), s * 7.5, G + 0.03, 0); gp.castShadow = false;
+      for (let x = 5.6; x < 9.5; x += PITCH * 2) for (let z = -7.25; z < 7.3; z += PITCH * 2) if (Math.random() < 0.6) studs.push([s * x, z, '#5DAE5A', G + 0.06]);
+    });
+    const tree = (x, z, k) => {
+      brick(0.25 * k, 0.5 * k, 0.25 * k, '#7A5233', x, G, z, false);
+      [[1.0, 0.0], [0.75, 0.36], [0.5, 0.66]].forEach(([w, y], i) => brick(w * k, 0.36 * k, w * k, i % 2 ? '#3E9446' : '#2F7D3A', x, G + 0.5 * k + y * k, z));
+    };
+    [[-6.4, -3.4], [-7.6, 0.6], [-6.6, 3.8], [-8.4, -1.6], [6.5, -3.0], [7.8, 0.2], [6.7, 3.5], [8.5, 2.2], [-8.0, 5.0], [8.2, -5.0], [-7.2, -5.6]].forEach(([x, z]) => tree(x, z, rnd(0.85, 1.25)));
+    [[-6.0, 1.5], [6.2, -1.2], [-8.8, 3.0], [7.0, 5.4]].forEach(([x, z]) => {   /* rocks: a few stacked grey bricks */
+      brick(0.5, 0.2, 0.4, '#9A97A3', x, G + 0.06, z); brick(0.3, 0.16, 0.25, '#B4B1BC', x + 0.05, G + 0.26, z - 0.03);
+    });
+    const flowers = ['#F2C14E', '#E8505B', '#FFFFFF', '#F28CB1'];
+    for (let i = 0; i < 40; i++) {
+      const s = Math.random() < 0.5 ? -1 : 1, x = s * rnd(5.6, 9.4), z = rnd(-7, 7);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 10), plastic(flowers[i % 4])), x, G + 0.08, z).castShadow = false;
+    }
+    /* torches at the four corners of the board: a brick post with a clear orange flame that flickers */
+    const flameM = new THREE.MeshStandardMaterial({ color: '#FFB347', emissive: '#FF8A1F', emissiveIntensity: 1.2, transparent: true, opacity: 0.85, roughness: 0.2 });
+    [[-5.35, 5.6], [5.35, 5.6], [-5.35, -5.6], [5.35, -5.6]].forEach(([x, z]) => {
+      brick(0.2, 0.7, 0.2, '#5A4636', x, G, z, false);
+      const fl = add(new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.3, 4), flameM), x, G + 0.86, z); fl.castShadow = false;
+      const light = new THREE.PointLight('#FFB066', 0.5, 4, 2); light.position.set(x, G + 1.0, z); root.add(light);
+      torches.push({ f: { scale: { setScalar: v => fl.scale.set(v / 0.7, (v / 0.7) * (1 + Math.sin(performance.now() / 90 + x) * 0.1), v / 0.7) } }, light, ph: rnd(0, 10) });
+    });
+    anims.push(t => waves.forEach(w => { w.o.rotation.y = Math.sin(t * 1.6 + w.ph) * 0.18; }));
+
     /* all the studs in two instanced meshes: solid plastic, and clear plastic for the river */
     const studGeo = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 14);
     [false, true].forEach(clear => {
@@ -540,6 +619,7 @@
         if (k >= 1) { scene.remove(L.o); L.o.material.dispose(); live.splice(i, 1); }
       }
     }
+    anims.forEach(fn => fn(t));
     torches.forEach(T => { const f = 1 + Math.sin(t * 9 + T.ph) * 0.08 + Math.sin(t * 23 + T.ph * 2) * 0.05; T.f.scale.setScalar(0.7 * f); T.light.intensity = 0.9 * f; });
     if (water) { water.material.map.offset.x = t * 0.03; }
     if (motes) { motes.rotation.y = t * 0.01; motes.position.y = Math.sin(t * 0.2) * 0.1; }
