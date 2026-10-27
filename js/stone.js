@@ -331,7 +331,103 @@
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
   }
 
+  /* ---------- the brick board (with the brick figures) ----------
+   * The board is a studded baseplate on a wooden play table: a light half for 漢, a slate half for 楚, the grid and the
+   * palace diagonals laid in smooth dark tiles, corner marks on the cannon and soldier points, and a river of clear blue
+   * plates with white foam tiles and printed 楚河 漢界 tiles. Bright, warm playroom light. Studs are instanced. */
+  function brickHall(sc, ctx) {
+    scene = sc;
+    sc.background = new THREE.Color('#EFE7DC'); sc.environment = null;
+    sc.fog = new THREE.Fog('#EFE7DC', 22, 55);
+    ctx.hemi.color.set('#FFFFFF'); ctx.hemi.groundColor.set('#B9A58C'); ctx.hemi.intensity = 0.9;
+    ctx.sun.color.set('#FFF3E2'); ctx.sun.intensity = 0.95; ctx.sun.position.set(4, 14, 8);
+    const root = new THREE.Group(); sc.add(root);
+    const plastic = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.38, metalness: 0 }, o || {}));
+    const add = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; root.add(m); return m; };
+    const PLATE = 0.12, STUD_R = 0.07, STUD_H = 0.045, PITCH = 0.25;
+
+    /* the play table */
+    const wc = document.createElement('canvas'); wc.width = 512; wc.height = 512; const wg = wc.getContext('2d');
+    wg.fillStyle = '#C99A6B'; wg.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 60; i++) { wg.strokeStyle = `rgba(110,70,40,${rnd(0.05, 0.16)})`; wg.lineWidth = rnd(1, 4); const y = rnd(0, 512); wg.beginPath(); wg.moveTo(0, y); wg.bezierCurveTo(170, y + rnd(-8, 8), 340, y + rnd(-8, 8), 512, y + rnd(-6, 6)); wg.stroke(); }
+    const wt = new THREE.CanvasTexture(wc); wt.wrapS = wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(4, 4); wt.encoding = THREE.sRGBEncoding;
+    const table = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: wt, roughness: 0.6 }));
+    table.rotation.x = -Math.PI / 2; table.position.y = -PLATE; table.receiveShadow = true; root.add(table);
+
+    /* two baseplates and a frame of bricks in each army's colour */
+    const halves = [['r', 1, '#E8D6AE', '#3D63C9'], ['b', -1, '#8F8C9C', '#C8323E']];
+    const studs = [];
+    halves.forEach(([, s, col, frame]) => {
+      const z0 = 0.4, z1 = 5.35, len = z1 - z0;
+      add(new THREE.Mesh(new THREE.BoxGeometry(9.6, PLATE, len), plastic(col)), 0, -PLATE / 2, s * (z0 + len / 2));
+      for (let x = -4.75; x <= 4.76; x += PITCH) for (let z = z0 + 0.125; z < z1; z += PITCH) studs.push([x, s * z, col]);
+      const fm = plastic(frame);
+      add(new THREE.Mesh(new THREE.BoxGeometry(10.1, 0.2, 0.25), fm), 0, -0.02, s * (z1 + 0.125));
+      [-1, 1].forEach(e => add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, len + 0.25), fm), e * 4.925, -0.02, s * (z0 + len / 2 + 0.125)));
+      for (let x = -4.875; x <= 4.9; x += PITCH * 2) studs.push([x, s * (z1 + 0.125), frame, 0.08]);
+    });
+    /* the grid: smooth tiles over the studs, so lines read cleanly */
+    const tileM = plastic('#3A3440', { roughness: 0.3 }), tileH = 0.06, tileW = 0.075;   /* taller than the studs, so lines run unbroken */
+    const tile = (x0, z0, x1, z1) => {
+      const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz);
+      const t = add(new THREE.Mesh(new THREE.BoxGeometry(tileW, tileH, L + tileW), tileM), (x0 + x1) / 2, tileH / 2 + 0.002, (z0 + z1) / 2);
+      t.rotation.y = Math.atan2(dx, dz); t.castShadow = false;
+    };
+    const wx = f => f - 4, wz = r => 4.5 - r;
+    for (let r = 0; r < 10; r++) tile(wx(0), wz(r), wx(8), wz(r));
+    for (let f = 0; f < 9; f++) {
+      tile(wx(f), wz(0), wx(f), wz(4)); tile(wx(f), wz(5), wx(f), wz(9));
+      if (f === 0 || f === 8) tile(wx(f), wz(4), wx(f), wz(5));
+    }
+    [[0, 2], [7, 9]].forEach(([a, b]) => { tile(wx(3), wz(a), wx(5), wz(b)); tile(wx(5), wz(a), wx(3), wz(b)); });
+    /* corner marks on the cannon and soldier points */
+    [[1, 2], [7, 2], [0, 3], [2, 3], [4, 3], [6, 3], [8, 3], [1, 7], [7, 7], [0, 6], [2, 6], [4, 6], [6, 6], [8, 6]].forEach(([f, r]) =>
+      [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dx, dz]) => {
+        if ((f === 0 && dx < 0) || (f === 8 && dx > 0)) return;
+        const x = wx(f) + dx * 0.12, z = wz(r) + dz * 0.12;
+        tile(x, z, x + dx * 0.16, z); tile(x, z, x, z + dz * 0.16);
+      }));
+
+    /* the river: clear blue plates set a little lower, with white foam tiles and printed tiles */
+    const riverM = new THREE.MeshStandardMaterial({ color: '#4FA8E8', roughness: 0.15, transparent: true, opacity: 0.78 });
+    add(new THREE.Mesh(new THREE.BoxGeometry(9.6, PLATE * 0.8, 0.8), riverM), 0, -PLATE * 0.55, 0).castShadow = false;
+    add(new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.02, 0.8), plastic('#2E6FB0')), 0, -PLATE + 0.01, 0);   /* deeper blue under the clear plates */
+    for (let x = -4.75; x <= 4.76; x += PITCH) for (const z of [-0.25, 0, 0.25]) studs.push([x, z, '#7CC3F2', -PLATE * 0.15, true]);
+    const foamM = plastic('#FFFFFF');
+    [[-3.6, -0.12], [-2.1, 0.18], [1.3, -0.2], [3.4, 0.12], [-0.4, 0.22], [2.6, -0.05]].forEach(([x, z]) => {
+      const f = add(new THREE.Mesh(new THREE.BoxGeometry(rnd(0.3, 0.55), 0.03, 0.1), foamM), x, -PLATE * 0.1, z); f.castShadow = false;
+    });
+    const printed = (txt, x, flip) => {
+      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 192; const g = cv.getContext('2d');
+      g.fillStyle = '#F4EEDC'; g.fillRect(0, 0, 512, 192);
+      g.strokeStyle = '#C8A04A'; g.lineWidth = 10; g.strokeRect(14, 14, 484, 164);
+      g.fillStyle = '#3A3440'; g.font = 'bold 110px "LXGW WenKai TC", "Noto Sans TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const draw = () => { g.fillStyle = '#F4EEDC'; g.fillRect(24, 24, 464, 144); g.fillStyle = '#3A3440'; g.fillText(txt, 256, 100); t.needsUpdate = true; };
+      const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; draw();
+      if (document.fonts) document.fonts.load(g.font, txt).then(draw, () => {});
+      const side = plastic('#F4EEDC');
+      const m = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.6), [side, side, new THREE.MeshStandardMaterial({ map: t, roughness: 0.35 }), side, side, side]), x, 0.0, 0);
+      if (flip) m.rotation.y = Math.PI;
+    };
+    printed('楚 河', -2.2, false); printed('漢 界', 2.2, false);
+
+    /* all the studs in two instanced meshes: solid plastic, and clear plastic for the river */
+    const studGeo = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 14);
+    [false, true].forEach(clear => {
+      const list = studs.filter(s => !!s[4] === clear);
+      const mat = clear ? new THREE.MeshStandardMaterial({ roughness: 0.15, transparent: true, opacity: 0.8 }) : plastic('#FFFFFF');
+      const im = new THREE.InstancedMesh(studGeo, mat, list.length), m4 = new THREE.Matrix4(), c = new THREE.Color();
+      list.forEach(([x, z, col, y], i) => {
+        m4.makeTranslation(x, (y === undefined ? 0 : y) + STUD_H / 2, z); im.setMatrixAt(i, m4);
+        c.set(col); if (window.XQLook) c.convertSRGBToLinear(); im.setColorAt(i, c);
+      });
+      im.instanceColor.needsUpdate = true; im.receiveShadow = true; root.add(im);
+    });
+    return root;
+  }
+
   function hall(sc, ctx) {
+    if (window.XQToy && !/[?&]golem/.test(location.search)) return brickHall(sc, ctx);   /* toys play on the brick board */
     scene = sc;
     sc.background = new THREE.Color('#141016'); sc.environment = null;
     sc.fog = new THREE.Fog('#141016', 16, 42);
